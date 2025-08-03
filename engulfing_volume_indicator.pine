@@ -1,18 +1,16 @@
 //@version=5
-indicator("Engulfing Volume Indicator", overlay=true, max_bars_back=500)
+indicator("Engulfing Volume Indicator", overlay=true)
 
 // ============================================================================
 // INPUTS
 // ============================================================================
 showLabels = input.bool(true, "Show Signal Labels", group="Display")
 showMitigationZones = input.bool(true, "Show Mitigation Zones", group="Display")
-showVolumeBars = input.bool(false, "Show Volume Bars", group="Display")
 
 // Colors
 bullColor = input.color(color.lime, "Bullish Color", group="Colors")
 bearColor = input.color(color.red, "Bearish Color", group="Colors")
 mitigationColor = input.color(color.yellow, "Mitigation Zone Color", group="Colors")
-volumeColor = input.color(color.blue, "Volume Bar Color", group="Colors")
 
 // Volume settings
 volumeMultiplier = input.float(1.5, "Volume Multiplier", minval=1.0, step=0.1, group="Volume")
@@ -26,9 +24,6 @@ mitigationBars = input.int(3, "Mitigation Zone Bars", minval=1, maxval=10, group
 // TIMEFRAME VALIDATION
 // ============================================================================
 isValidTF = timeframe.isminutes and (timeframe.multiplier == 5 or timeframe.multiplier == 15)
-if not isValidTF
-    label.new(bar_index, high, "⚠️ Use 5m or 15m timeframe only", 
-              color=color.red, textcolor=color.white, style=label.style_label_down)
 
 // ============================================================================
 // PRICE AND VOLUME CALCULATIONS
@@ -103,11 +98,11 @@ if not na(bearMitigationLevel)
 // ============================================================================
 // Signal labels
 if showLabels and validBullSignal
-    label.new(bar_index, low, "🟢 BULL\nVol: " + str.tostring(volumeRatio, "#.##") + "x", 
+    label.new(bar_index, low, "BULL\nVol: " + str.tostring(volumeRatio, "#.##") + "x", 
               color=bullColor, textcolor=color.white, style=label.style_label_up, size=size.small)
 
 if showLabels and validBearSignal
-    label.new(bar_index, high, "🔴 BEAR\nVol: " + str.tostring(volumeRatio, "#.##") + "x", 
+    label.new(bar_index, high, "BEAR\nVol: " + str.tostring(volumeRatio, "#.##") + "x", 
               color=bearColor, textcolor=color.white, style=label.style_label_down, size=size.small)
 
 // Mitigation zones
@@ -123,34 +118,18 @@ if showMitigationZones and not na(bearMitigationLevel)
     label.new(bar_index, bearMitigationLevel, "Bear Mitigation", 
               color=mitigationColor, textcolor=color.black, style=label.style_label_left, size=size.tiny)
 
-// Volume bars (optional)
-if showVolumeBars and isHighVolume
-    plotcandle(high, low, high, low, "High Volume", color=volumeColor, wickcolor=volumeColor, bordercolor=volumeColor)
-
 // ============================================================================
 // ALERTS
 // ============================================================================
 alertcondition(validBullSignal, title="Bullish Engulfing Alert",
-     message="🟢 Bullish engulfing with high volume on {{ticker}} ({{timeframe}}) at {{time}}")
+     message="Bullish engulfing with high volume on {{ticker}} ({{timeframe}}) at {{time}}")
 
 alertcondition(validBearSignal, title="Bearish Engulfing Alert",
-     message="🔴 Bearish engulfing with high volume on {{ticker}} ({{timeframe}}) at {{time}}")
+     message="Bearish engulfing with high volume on {{ticker}} ({{timeframe}}) at {{time}}")
 
 // ============================================================================
-// TABLE DISPLAY
+// TIMEFRAME WARNING
 // ============================================================================
-if barstate.islast
-    var table infoTable = table.new(position.top_right, 2, 4, bgcolor=color.white, border_width=1)
-    
-    table.cell(infoTable, 0, 0, "Metric", text_color=color.black, bgcolor=color.gray)
-    table.cell(infoTable, 1, 0, "Value", text_color=color.black, bgcolor=color.gray)
-    
-    table.cell(infoTable, 0, 1, "Avg Volume", text_color=color.black)
-    table.cell(infoTable, 1, 1, str.tostring(math.round(avgVolume)), text_color=color.black)
-    
-    table.cell(infoTable, 0, 2, "Current Volume", text_color=color.black)
-    table.cell(infoTable, 1, 2, str.tostring(volume), text_color=color.black)
-    
-    table.cell(infoTable, 0, 3, "Volume Ratio", text_color=color.black)
-    table.cell(infoTable, 1, 3, str.tostring(volumeRatio, "#.##") + "x", 
-               text_color=volumeRatio > volumeMultiplier ? color.green : color.red)
+if not isValidTF and barstate.islast
+    label.new(bar_index, high, "Use 5m or 15m timeframe only", 
+              color=color.red, textcolor=color.white, style=label.style_label_down)
