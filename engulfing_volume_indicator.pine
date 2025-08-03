@@ -1,0 +1,156 @@
+//@version=5
+indicator("Engulfing Volume Indicator", overlay=true, max_bars_back=500)
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+showLabels = input.bool(true, "Show Signal Labels", group="Display")
+showMitigationZones = input.bool(true, "Show Mitigation Zones", group="Display")
+showVolumeBars = input.bool(false, "Show Volume Bars", group="Display")
+
+// Colors
+bullColor = input.color(color.lime, "Bullish Color", group="Colors")
+bearColor = input.color(color.red, "Bearish Color", group="Colors")
+mitigationColor = input.color(color.yellow, "Mitigation Zone Color", group="Colors")
+volumeColor = input.color(color.blue, "Volume Bar Color", group="Colors")
+
+// Volume settings
+volumeMultiplier = input.float(1.5, "Volume Multiplier", minval=1.0, step=0.1, group="Volume")
+volumePeriod = input.int(20, "Volume SMA Period", minval=5, maxval=100, group="Volume")
+
+// Engulfing settings
+bodySizeMultiplier = input.float(1.1, "Body Size Multiplier", minval=1.0, step=0.1, group="Engulfing")
+mitigationBars = input.int(3, "Mitigation Zone Bars", minval=1, maxval=10, group="Mitigation")
+
+// ============================================================================
+// TIMEFRAME VALIDATION
+// ============================================================================
+isValidTF = timeframe.isminutes and (timeframe.multiplier == 5 or timeframe.multiplier == 15)
+if not isValidTF
+    label.new(bar_index, high, "⚠️ Use 5m or 15m timeframe only", 
+              color=color.red, textcolor=color.white, style=label.style_label_down)
+
+// ============================================================================
+// PRICE AND VOLUME CALCULATIONS
+// ============================================================================
+// Body calculations
+bodyHigh = math.max(open, close)
+bodyLow = math.min(open, close)
+prevBodyHigh = math.max(open[1], close[1])
+prevBodyLow = math.min(open[1], close[1])
+bodySize = math.abs(close - open)
+prevBodySize = math.abs(close[1] - open[1])
+
+// Volume calculations
+avgVolume = ta.sma(volume, volumePeriod)
+isHighVolume = volume > avgVolume * volumeMultiplier
+volumeRatio = volume / avgVolume
+
+// ============================================================================
+// ENGULFING PATTERN DETECTION
+// ============================================================================
+// Bullish engulfing
+bullishEngulfing = close > open and                    // Current candle is bullish
+                   close[1] < open[1] and              // Previous candle is bearish
+                   bodyLow < prevBodyLow and           // Engulfs previous low
+                   bodyHigh > prevBodyHigh and         // Engulfs previous high
+                   bodySize > prevBodySize * bodySizeMultiplier
+
+// Bearish engulfing
+bearishEngulfing = close < open and                    // Current candle is bearish
+                   close[1] > open[1] and              // Previous candle is bullish
+                   bodyHigh > prevBodyHigh and         // Engulfs previous high
+                   bodyLow < prevBodyLow and           // Engulfs previous low
+                   bodySize > prevBodySize * bodySizeMultiplier
+
+// ============================================================================
+// SIGNAL GENERATION
+// ============================================================================
+validBullSignal = isValidTF and bullishEngulfing and isHighVolume
+validBearSignal = isValidTF and bearishEngulfing and isHighVolume
+
+// ============================================================================
+// MITIGATION ZONE CALCULATION
+// ============================================================================
+var float bullMitigationLevel = na
+var float bearMitigationLevel = na
+var int bullMitigationCount = 0
+var int bearMitigationCount = 0
+
+// Reset mitigation counters
+if validBullSignal
+    bullMitigationLevel := bodyHigh
+    bullMitigationCount := 0
+if validBearSignal
+    bearMitigationLevel := bodyLow
+    bearMitigationCount := 0
+
+// Track mitigation zones
+if not na(bullMitigationLevel)
+    bullMitigationCount := bullMitigationCount + 1
+    if bullMitigationCount > mitigationBars
+        bullMitigationLevel := na
+        bullMitigationCount := 0
+
+if not na(bearMitigationLevel)
+    bearMitigationCount := bearMitigationCount + 1
+    if bearMitigationCount > mitigationBars
+        bearMitigationLevel := na
+        bearMitigationCount := 0
+
+// ============================================================================
+// PLOTTING
+// ============================================================================
+// Signal labels
+if showLabels and validBullSignal
+    label.new(bar_index, low, "🟢 BULL\nVol: " + str.tostring(volumeRatio, "#.##") + "x", 
+              color=bullColor, textcolor=color.white, style=label.style_label_up, size=size.small)
+
+if showLabels and validBearSignal
+    label.new(bar_index, high, "🔴 BEAR\nVol: " + str.tostring(volumeRatio, "#.##") + "x", 
+              color=bearColor, textcolor=color.white, style=label.style_label_down, size=size.small)
+
+// Mitigation zones
+if showMitigationZones and not na(bullMitigationLevel)
+    line.new(bar_index - bullMitigationCount, bullMitigationLevel, bar_index, bullMitigationLevel, 
+             color=mitigationColor, width=2, style=line.style_solid)
+    label.new(bar_index, bullMitigationLevel, "Bull Mitigation", 
+              color=mitigationColor, textcolor=color.black, style=label.style_label_left, size=size.tiny)
+
+if showMitigationZones and not na(bearMitigationLevel)
+    line.new(bar_index - bearMitigationCount, bearMitigationLevel, bar_index, bearMitigationLevel, 
+             color=mitigationColor, width=2, style=line.style_solid)
+    label.new(bar_index, bearMitigationLevel, "Bear Mitigation", 
+              color=mitigationColor, textcolor=color.black, style=label.style_label_left, size=size.tiny)
+
+// Volume bars (optional)
+if showVolumeBars and isHighVolume
+    plotcandle(high, low, high, low, "High Volume", color=volumeColor, wickcolor=volumeColor, bordercolor=volumeColor)
+
+// ============================================================================
+// ALERTS
+// ============================================================================
+alertcondition(validBullSignal, title="Bullish Engulfing Alert",
+     message="🟢 Bullish engulfing with high volume on {{ticker}} ({{timeframe}}) at {{time}}")
+
+alertcondition(validBearSignal, title="Bearish Engulfing Alert",
+     message="🔴 Bearish engulfing with high volume on {{ticker}} ({{timeframe}}) at {{time}}")
+
+// ============================================================================
+// TABLE DISPLAY
+// ============================================================================
+if barstate.islast
+    var table infoTable = table.new(position.top_right, 2, 4, bgcolor=color.white, border_width=1)
+    
+    table.cell(infoTable, 0, 0, "Metric", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 1, 0, "Value", text_color=color.black, bgcolor=color.gray)
+    
+    table.cell(infoTable, 0, 1, "Avg Volume", text_color=color.black)
+    table.cell(infoTable, 1, 1, str.tostring(math.round(avgVolume)), text_color=color.black)
+    
+    table.cell(infoTable, 0, 2, "Current Volume", text_color=color.black)
+    table.cell(infoTable, 1, 2, str.tostring(volume), text_color=color.black)
+    
+    table.cell(infoTable, 0, 3, "Volume Ratio", text_color=color.black)
+    table.cell(infoTable, 1, 3, str.tostring(volumeRatio, "#.##") + "x", 
+               text_color=volumeRatio > volumeMultiplier ? color.green : color.red)
