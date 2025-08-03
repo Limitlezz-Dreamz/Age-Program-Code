@@ -1,9 +1,7 @@
 //@version=5
 indicator("Engulfing Volume Indicator", overlay=true)
 
-// ============================================================================
 // INPUTS
-// ============================================================================
 showLabels = input.bool(true, "Show Signal Labels", group="Display")
 showMitigationZones = input.bool(true, "Show Mitigation Zones", group="Display")
 
@@ -20,14 +18,10 @@ volumePeriod = input.int(20, "Volume SMA Period", minval=5, maxval=100, group="V
 bodySizeMultiplier = input.float(1.1, "Body Size Multiplier", minval=1.0, step=0.1, group="Engulfing")
 mitigationBars = input.int(3, "Mitigation Zone Bars", minval=1, maxval=10, group="Mitigation")
 
-// ============================================================================
 // TIMEFRAME VALIDATION
-// ============================================================================
 isValidTF = timeframe.isminutes and (timeframe.multiplier == 5 or timeframe.multiplier == 15)
 
-// ============================================================================
 // PRICE AND VOLUME CALCULATIONS
-// ============================================================================
 // Body calculations
 bodyHigh = math.max(open, close)
 bodyLow = math.min(open, close)
@@ -41,9 +35,7 @@ avgVolume = ta.sma(volume, volumePeriod)
 isHighVolume = volume > avgVolume * volumeMultiplier
 volumeRatio = volume / avgVolume
 
-// ============================================================================
 // ENGULFING PATTERN DETECTION
-// ============================================================================
 // Bullish engulfing
 bullishEngulfing = close > open and                    // Current candle is bullish
                    close[1] < open[1] and              // Previous candle is bearish
@@ -58,15 +50,11 @@ bearishEngulfing = close < open and                    // Current candle is bear
                    bodyLow < prevBodyLow and           // Engulfs previous low
                    bodySize > prevBodySize * bodySizeMultiplier
 
-// ============================================================================
 // SIGNAL GENERATION
-// ============================================================================
 validBullSignal = isValidTF and bullishEngulfing and isHighVolume
 validBearSignal = isValidTF and bearishEngulfing and isHighVolume
 
-// ============================================================================
 // MITIGATION ZONE CALCULATION
-// ============================================================================
 var float bullMitigationLevel = na
 var float bearMitigationLevel = na
 var int bullMitigationCount = 0
@@ -93,9 +81,7 @@ if not na(bearMitigationLevel)
         bearMitigationLevel := na
         bearMitigationCount := 0
 
-// ============================================================================
 // PLOTTING
-// ============================================================================
 // Signal labels
 if showLabels and validBullSignal
     label.new(bar_index, low, "BULL\nVol: " + str.tostring(volumeRatio, "#.##") + "x", 
@@ -118,18 +104,14 @@ if showMitigationZones and not na(bearMitigationLevel)
     label.new(bar_index, bearMitigationLevel, "Bear Mitigation", 
               color=mitigationColor, textcolor=color.black, style=label.style_label_left, size=size.tiny)
 
-// ============================================================================
 // ALERTS
-// ============================================================================
 alertcondition(validBullSignal, title="Bullish Engulfing Alert",
      message="Bullish engulfing with high volume on {{ticker}} ({{timeframe}}) at {{time}}")
 
 alertcondition(validBearSignal, title="Bearish Engulfing Alert",
      message="Bearish engulfing with high volume on {{ticker}} ({{timeframe}}) at {{time}}")
 
-// ============================================================================
 // TIMEFRAME WARNING
-// ============================================================================
 if not isValidTF and barstate.islast
     label.new(bar_index, high, "Use 5m or 15m timeframe only", 
               color=color.red, textcolor=color.white, style=label.style_label_down)
