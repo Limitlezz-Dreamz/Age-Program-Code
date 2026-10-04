@@ -467,7 +467,7 @@ fn extract_enc_blob(s: &str) -> Option<String> {
 
 fn try_b64_utf16le(s: &str) -> Option<String> {
     let cleaned: String = s.chars().filter(|c| !c.is_whitespace()).collect();
-    if cleaned.len() < 16 || cleaned.len() % 4 != 0 {
+    if cleaned.len() < 16 || !cleaned.len().is_multiple_of(4) {
         return None;
     }
     if !cleaned
@@ -477,12 +477,12 @@ fn try_b64_utf16le(s: &str) -> Option<String> {
         return None;
     }
     let bytes = b64_decode(&cleaned)?;
-    if bytes.len() < 4 || bytes.len() % 2 != 0 {
+    if bytes.len() < 4 || !bytes.len().is_multiple_of(2) {
         return None;
     }
     let mut u16s = Vec::with_capacity(bytes.len() / 2);
-    for chunk in bytes.chunks_exact(2) {
-        u16s.push(u16::from_le_bytes([chunk[0], chunk[1]]));
+    for chunk in bytes.as_chunks::<2>().0 {
+        u16s.push(u16::from_le_bytes(*chunk));
     }
     let text = String::from_utf16(&u16s).ok()?;
     if text
@@ -532,11 +532,11 @@ fn b64_decode(s: &str) -> Option<Vec<u8>> {
         }
     }
     let bytes = s.as_bytes();
-    if bytes.len() % 4 != 0 {
+    if !bytes.len().is_multiple_of(4) {
         return None;
     }
     let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
-    for chunk in bytes.chunks_exact(4) {
+    for chunk in bytes.as_chunks::<4>().0 {
         let (a, b, c, d) = (
             val(chunk[0])?,
             val(chunk[1])?,

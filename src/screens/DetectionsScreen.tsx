@@ -181,13 +181,13 @@ export function DetectionsScreen() {
     overscan: 12,
   });
 
+  const virtualItems = virtualizer.getVirtualItems();
   useEffect(() => {
-    const items = virtualizer.getVirtualItems();
-    const last = items[items.length - 1];
+    const last = virtualItems[virtualItems.length - 1];
     if (last && last.index >= displayRows.length - 20) {
       void loadMore();
     }
-  }, [virtualizer.getVirtualItems(), displayRows.length, loadMore, virtualizer]);
+  }, [virtualItems, displayRows.length, loadMore]);
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (!rows.length) return;
