@@ -1,0 +1,29 @@
+[package]
+name = "lw-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Headless Logwarden CLI"
+publish = false
+
+[[bin]]
+name = "lw"
+path = "src/main.rs"
+
+[dependencies]
+lw-core = { workspace = true }
+lw-ingest = { workspace = true }
+lw-normalize = { workspace = true }
+lw-store = { workspace = true }
+lw-rules = { workspace = true }
+lw-detect = { workspace = true }
+lw-report = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde_json = { workspace = true }
+time = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

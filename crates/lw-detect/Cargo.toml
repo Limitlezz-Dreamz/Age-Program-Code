@@ -1,0 +1,32 @@
+[package]
+name = "lw-detect"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Detection engine trait and implementations for Logwarden"
+publish = false
+
+[features]
+default = ["rsigma"]
+rsigma = []
+sigma-rust = []
+
+[dependencies]
+lw-core = { workspace = true }
+lw-rules = { workspace = true }
+lw-store = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+rsigma-parser = { workspace = true }
+rsigma-eval = { workspace = true }
+rayon = { workspace = true }
+rusqlite = { workspace = true }
+time = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+lw-ingest = { workspace = true }

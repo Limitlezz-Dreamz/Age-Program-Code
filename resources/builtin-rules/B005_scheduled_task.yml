@@ -1,0 +1,21 @@
+title: Scheduled task created or updated
+id: B005
+status: stable
+level: low
+author: Logwarden built-in
+tags:
+  - attack.t1053.005
+logsource:
+  product: windows
+detection:
+  selection_sec:
+    Channel: Security
+    EventID:
+      - 4698
+      - 4702
+  selection_ts:
+    Channel: Microsoft-Windows-TaskScheduler/Operational
+    EventID:
+      - 106
+      - 140
+  condition: 1 of selection_*

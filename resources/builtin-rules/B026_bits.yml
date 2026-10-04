@@ -1,0 +1,17 @@
+title: BITS job created or transfer
+id: B026
+status: stable
+level: low
+author: Logwarden built-in
+tags:
+  - attack.t1197
+logsource:
+  product: windows
+  service: bits-client
+detection:
+  selection:
+    Channel: Microsoft-Windows-Bits-Client/Operational
+    EventID:
+      - 3
+      - 59
+  condition: selection

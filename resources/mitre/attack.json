@@ -1,0 +1,22 @@
+{
+  "t1003.001": {"name": "LSASS Memory", "tactic": "credential-access"},
+  "t1021.001": {"name": "Remote Desktop Protocol", "tactic": "lateral-movement"},
+  "t1021.002": {"name": "SMB/Windows Admin Shares", "tactic": "lateral-movement"},
+  "t1027": {"name": "Obfuscated Files or Information", "tactic": "defense-evasion"},
+  "t1053.005": {"name": "Scheduled Task", "tactic": "persistence"},
+  "t1059.001": {"name": "PowerShell", "tactic": "execution"},
+  "t1070.001": {"name": "Clear Windows Event Logs", "tactic": "defense-evasion"},
+  "t1098": {"name": "Account Manipulation", "tactic": "persistence"},
+  "t1110": {"name": "Brute Force", "tactic": "credential-access"},
+  "t1110.001": {"name": "Password Guessing", "tactic": "credential-access"},
+  "t1110.003": {"name": "Password Spraying", "tactic": "credential-access"},
+  "t1136.001": {"name": "Local Account", "tactic": "persistence"},
+  "t1197": {"name": "BITS Jobs", "tactic": "defense-evasion"},
+  "t1543.003": {"name": "Windows Service", "tactic": "persistence"},
+  "t1546.003": {"name": "Windows Management Instrumentation Event Subscription", "tactic": "persistence"},
+  "t1550.002": {"name": "Pass the Hash", "tactic": "lateral-movement"},
+  "t1558.003": {"name": "Kerberoasting", "tactic": "credential-access"},
+  "t1562.001": {"name": "Disable or Modify Tools", "tactic": "defense-evasion"},
+  "t1562.002": {"name": "Disable Windows Event Logging", "tactic": "defense-evasion"},
+  "t1569.002": {"name": "Service Execution", "tactic": "execution"}
+}

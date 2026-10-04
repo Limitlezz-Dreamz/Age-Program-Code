@@ -1,0 +1,63 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/lw-core",
+    "crates/lw-ingest",
+    "crates/lw-normalize",
+    "crates/lw-rules",
+    "crates/lw-detect",
+    "crates/lw-store",
+    "crates/lw-report",
+    "crates/lw-cli",
+    "src-tauri",
+]
+default-members = ["crates/lw-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Limitlezz-Dreamz/Age-Program-Code"
+rust-version = "1.85"
+
+[workspace.dependencies]
+lw-core = { path = "crates/lw-core" }
+lw-ingest = { path = "crates/lw-ingest" }
+lw-normalize = { path = "crates/lw-normalize" }
+lw-rules = { path = "crates/lw-rules" }
+lw-detect = { path = "crates/lw-detect" }
+lw-store = { path = "crates/lw-store" }
+lw-report = { path = "crates/lw-report" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+time = { version = "0.3", features = ["formatting", "parsing", "macros"] }
+sha2 = "0.10"
+hex = "0.4"
+zstd = "0.13"
+rayon = "1.10"
+crossbeam-channel = "0.5"
+walkdir = "2"
+clap = { version = "4", features = ["derive"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+evtx = { version = "0.12", default-features = false, features = ["multithreading"] }
+num_cpus = "1.16"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+rsigma-parser = "0.23"
+rsigma-eval = { version = "0.23", features = ["parallel"] }
+blake3 = "1.5"
+zip = "2"
+ureq = { version = "3", default-features = true, features = ["json"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

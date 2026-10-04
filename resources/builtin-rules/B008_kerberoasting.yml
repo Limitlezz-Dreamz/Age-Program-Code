@@ -1,0 +1,34 @@
+title: 'Kerberoasting: RC4 service ticket'
+id: B008
+status: stable
+level: medium
+author: Logwarden built-in
+tags:
+  - attack.t1558.003
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    Channel: Security
+    EventID: 4769
+    TicketEncryptionType:
+      - '0x17'
+      - '0x18'
+      - 0x17
+      - 0x18
+      - '23'
+      - '24'
+      - 23
+      - 24
+    Status:
+      - '0x0'
+      - 0
+      - '0x00'
+  filter_machine:
+    ServiceName|endswith: '$'
+  filter_krbtgt:
+    ServiceName: krbtgt
+  filter_machine_user:
+    TargetUserName|contains: '$@'
+  condition: selection and not 1 of filter_*

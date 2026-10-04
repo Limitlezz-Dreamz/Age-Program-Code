@@ -1,0 +1,29 @@
+title: Suspicious script block
+id: B020
+status: stable
+level: medium
+author: Logwarden built-in
+tags:
+  - attack.t1059.001
+logsource:
+  product: windows
+  category: ps_script
+detection:
+  selection:
+    Channel:
+      - Microsoft-Windows-PowerShell/Operational
+      - PowerShellCore/Operational
+    EventID: 4104
+  suspicious:
+    ScriptBlockText|contains:
+      - Invoke-Mimikatz
+      - MiniDumpWriteDump
+      - FromBase64String
+      - Net.WebClient
+      - DownloadString
+      - IEX
+      - Invoke-Expression
+      - '-bxor'
+      - AmsiUtils
+      - VirtualAlloc
+  condition: selection and suspicious
