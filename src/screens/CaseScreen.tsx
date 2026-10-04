@@ -27,6 +27,7 @@ export function CaseScreen() {
   const defaultAnalysisOptions = useAppStore((s) => s.defaultAnalysisOptions);
   const dropActive = useAppStore((s) => s.dropActive);
   const settings = useAppStore((s) => s.settings);
+  const setScreen = useAppStore((s) => s.setScreen);
 
   const [name, setName] = useState("investigation");
   const [profile, setProfile] = useState(settings?.rule_profile ?? "default");
@@ -382,6 +383,24 @@ export function CaseScreen() {
               {Math.round(analysis.eventsPerSec)}/s · {analysis.detections} detections
               {analysis.lastError ? ` · ${analysis.lastError}` : ""}
             </p>
+            {analysis.phase === "done" && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  className="h-8 text-xs"
+                  onClick={() => setScreen("dashboard")}
+                >
+                  Open Dashboard
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-8 text-xs"
+                  onClick={() => setScreen("detections")}
+                >
+                  Open Detections
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </section>

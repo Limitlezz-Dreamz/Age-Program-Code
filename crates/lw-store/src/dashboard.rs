@@ -1,7 +1,8 @@
+use crate::detections::{detection_where, DetectionQuery};
 use crate::files::list_files;
 use crate::query::stats_summary;
 use lw_core::{Error, Result};
-use rusqlite::Connection;
+use rusqlite::{params_from_iter, Connection};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -49,15 +50,20 @@ pub struct DashboardSummary {
     pub detections_over_time: Vec<TimeBucket>,
 }
 
-pub fn dashboard_summary(conn: &Connection) -> Result<DashboardSummary> {
+pub fn dashboard_summary(conn: &Connection, filter: &DetectionQuery) -> Result<DashboardSummary> {
     let stats = stats_summary(conn)?;
+    let (where_sql, params) = detection_where(filter);
+
     let mut severity = SeverityCounts::default();
     {
+        let sql = format!(
+            "SELECT severity, COUNT(*) FROM detections WHERE {where_sql} GROUP BY severity"
+        );
         let mut stmt = conn
-            .prepare("SELECT severity, COUNT(*) FROM detections GROUP BY severity")
+            .prepare(&sql)
             .map_err(|e| Error::Sqlite(e.to_string()))?;
         let rows = stmt
-            .query_map([], |r| {
+            .query_map(params_from_iter(params.iter().cloned()), |r| {
                 Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)? as u64))
             })
             .map_err(|e| Error::Sqlite(e.to_string()))?;
@@ -78,26 +84,42 @@ pub fn dashboard_summary(conn: &Connection) -> Result<DashboardSummary> {
 
     let top_rules = named_counts(
         conn,
-        "SELECT rule_title, COUNT(*) FROM detections GROUP BY rule_title ORDER BY COUNT(*) DESC LIMIT 10",
+        &format!(
+            "SELECT rule_title, COUNT(*) FROM detections WHERE {where_sql}
+             GROUP BY rule_title ORDER BY COUNT(*) DESC LIMIT 10"
+        ),
+        &params,
     )?;
     let top_hosts = named_counts(
         conn,
-        "SELECT computer, COUNT(*) FROM detections WHERE computer IS NOT NULL AND computer != ''
-         GROUP BY computer ORDER BY COUNT(*) DESC LIMIT 10",
+        &format!(
+            "SELECT computer, COUNT(*) FROM detections
+             WHERE {where_sql} AND computer IS NOT NULL AND computer != ''
+             GROUP BY computer ORDER BY COUNT(*) DESC LIMIT 10"
+        ),
+        &params,
     )?;
     let top_users = named_counts(
         conn,
-        "SELECT user_name, COUNT(*) FROM detections WHERE user_name IS NOT NULL AND user_name != ''
-         GROUP BY user_name ORDER BY COUNT(*) DESC LIMIT 10",
+        &format!(
+            "SELECT user_name, COUNT(*) FROM detections
+             WHERE {where_sql} AND user_name IS NOT NULL AND user_name != ''
+             GROUP BY user_name ORDER BY COUNT(*) DESC LIMIT 10"
+        ),
+        &params,
     )?;
 
-    // Tactic counts from mitre_json (best-effort parse for MVP).
     let top_tactics = {
+        let sql = format!(
+            "SELECT mitre_json FROM detections WHERE {where_sql} AND mitre_json IS NOT NULL"
+        );
         let mut stmt = conn
-            .prepare("SELECT mitre_json FROM detections WHERE mitre_json IS NOT NULL")
+            .prepare(&sql)
             .map_err(|e| Error::Sqlite(e.to_string()))?;
         let rows = stmt
-            .query_map([], |r| r.get::<_, String>(0))
+            .query_map(params_from_iter(params.iter().cloned()), |r| {
+                r.get::<_, String>(0)
+            })
             .map_err(|e| Error::Sqlite(e.to_string()))?;
         let mut map = std::collections::HashMap::<String, u64>::new();
         for row in rows {
@@ -125,7 +147,8 @@ pub fn dashboard_summary(conn: &Connection) -> Result<DashboardSummary> {
         .collect::<Vec<_>>();
 
     let coverage = coverage_warnings(conn, &channels)?;
-    let detections_over_time = detections_sparkline(conn, stats.first_ts, stats.last_ts)?;
+    let detections_over_time =
+        detections_sparkline(conn, &where_sql, &params, stats.first_ts, stats.last_ts)?;
 
     Ok(DashboardSummary {
         severity,
@@ -147,6 +170,8 @@ pub fn dashboard_summary(conn: &Connection) -> Result<DashboardSummary> {
 
 fn detections_sparkline(
     conn: &Connection,
+    where_sql: &str,
+    params: &[rusqlite::types::Value],
     first_ts: Option<i64>,
     last_ts: Option<i64>,
 ) -> Result<Vec<TimeBucket>> {
@@ -157,16 +182,19 @@ fn detections_sparkline(
         return Ok(Vec::new());
     }
     let span = (last - first).max(1);
-    // Aim for ~48 buckets.
     let bucket = ((span / 48).max(1_000_000)).max(1);
+    let sql = format!(
+        "SELECT (ts / ?) * ? AS bucket, COUNT(*) FROM detections
+         WHERE {where_sql}
+         GROUP BY bucket ORDER BY bucket ASC LIMIT 200"
+    );
+    let mut bind = vec![bucket.into(), bucket.into()];
+    bind.extend(params.iter().cloned());
     let mut stmt = conn
-        .prepare(
-            "SELECT (ts / ?1) * ?1 AS bucket, COUNT(*) FROM detections
-             GROUP BY bucket ORDER BY bucket ASC LIMIT 200",
-        )
+        .prepare(&sql)
         .map_err(|e| Error::Sqlite(e.to_string()))?;
     let rows = stmt
-        .query_map([bucket], |r| {
+        .query_map(params_from_iter(bind), |r| {
             Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)? as u64))
         })
         .map_err(|e| Error::Sqlite(e.to_string()))?;
@@ -178,12 +206,16 @@ fn detections_sparkline(
     Ok(out)
 }
 
-fn named_counts(conn: &Connection, sql: &str) -> Result<Vec<NamedCount>> {
+fn named_counts(
+    conn: &Connection,
+    sql: &str,
+    params: &[rusqlite::types::Value],
+) -> Result<Vec<NamedCount>> {
     let mut stmt = conn
         .prepare(sql)
         .map_err(|e| Error::Sqlite(e.to_string()))?;
     let rows = stmt
-        .query_map([], |r| {
+        .query_map(params_from_iter(params.iter().cloned()), |r| {
             Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as u64))
         })
         .map_err(|e| Error::Sqlite(e.to_string()))?;
@@ -210,7 +242,6 @@ fn coverage_warnings(conn: &Connection, channels: &[NamedCount]) -> Result<Vec<C
             message: "No Sysmon logs: Sysmon-based rules can't fire".into(),
         });
     }
-    // 4688 without CommandLine
     let has_4688: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM events WHERE event_id = 4688 LIMIT 1",

@@ -623,11 +623,30 @@ fn to_detection_query(q: &DetectionQueryDto, filter: &GlobalFilter) -> Detection
 #[tauri::command]
 pub fn dashboard_summary_cmd(
     state: State<'_, AppState>,
-    _filter: Option<GlobalFilter>,
+    filter: Option<GlobalFilter>,
 ) -> Result<DashboardSummaryDto, ApiError> {
+    let filter = filter.unwrap_or_default();
+    let q = to_detection_query(
+        &DetectionQueryDto {
+            offset: 0,
+            limit: 1,
+            sort_col: "severity".into(),
+            sort_dir: "desc".into(),
+            severities: Vec::new(),
+            rule_uid: None,
+            text: None,
+            time_from: None,
+            time_to: None,
+            computers: Vec::new(),
+            users: Vec::new(),
+            triage: Vec::new(),
+            mitre_tactic: None,
+        },
+        &filter,
+    );
     with_open_case(&state, |open| {
         let conn = open.store.open_read_only()?;
-        let s = dashboard_summary(&conn)?;
+        let s = dashboard_summary(&conn, &q)?;
         Ok(DashboardSummaryDto {
             severity: SeverityCountsDto {
                 critical: s.severity.critical,

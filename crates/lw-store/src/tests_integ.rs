@@ -145,10 +145,20 @@ fn dashboard_event_detail_and_triage() {
     .unwrap();
     finish_run(&conn, run_id, "ok").unwrap();
 
-    let dash = dashboard_summary(&conn).unwrap();
+    let dash = dashboard_summary(&conn, &crate::DetectionQuery::default()).unwrap();
     assert_eq!(dash.total_detections, 1);
     assert_eq!(dash.severity.high, 1);
     assert!(!dash.coverage.is_empty()); // no sysmon etc.
+
+    let filtered = dashboard_summary(
+        &conn,
+        &crate::DetectionQuery {
+            severities: vec![Severity::Critical],
+            ..crate::DetectionQuery::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(filtered.total_detections, 0);
 
     let event = get_event(&conn, 1).unwrap();
     assert_eq!(event.event_id, 4624);

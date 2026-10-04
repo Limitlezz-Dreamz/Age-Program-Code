@@ -98,6 +98,13 @@ export function DetectionsScreen() {
     void reload();
   }, [reload]);
 
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [menu]);
+
   const loadMore = useCallback(async () => {
     if (!caseInfo || loading || rows.length >= total) return;
     setLoading(true);

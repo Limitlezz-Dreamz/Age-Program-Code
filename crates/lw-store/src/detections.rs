@@ -259,10 +259,8 @@ fn detection_sort_column(col: &str) -> &'static str {
     }
 }
 
-pub fn query_detections(
-    conn: &Connection,
-    q: &DetectionQuery,
-) -> Result<crate::query::Page<DetectionRow>> {
+/// Build `WHERE` clause + bind params for detection filters (shared with dashboard).
+pub fn detection_where(q: &DetectionQuery) -> (String, Vec<rusqlite::types::Value>) {
     let mut where_parts = vec!["1=1".to_string()];
     let mut params: Vec<rusqlite::types::Value> = Vec::new();
     if let Some(sev) = q.severity_min {
@@ -337,7 +335,14 @@ pub fn query_detections(
             }
         }
     }
-    let where_sql = where_parts.join(" AND ");
+    (where_parts.join(" AND "), params)
+}
+
+pub fn query_detections(
+    conn: &Connection,
+    q: &DetectionQuery,
+) -> Result<crate::query::Page<DetectionRow>> {
+    let (where_sql, params) = detection_where(q);
     let total: u64 = conn
         .query_row(
             &format!("SELECT COUNT(*) FROM detections WHERE {where_sql}"),
