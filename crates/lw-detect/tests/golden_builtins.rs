@@ -6,13 +6,23 @@ use lw_rules::RuleProfile;
 use lw_store::{create_case, open_write_conn, query_detections, DetectionQuery, StoreWriteCmd};
 use std::path::{Path, PathBuf};
 
+fn workspace_root() -> PathBuf {
+    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    manifest
+        .parent()
+        .and_then(|p| p.parent())
+        .map(Path::to_path_buf)
+        .unwrap_or(manifest)
+}
+
 fn fixtures_root() -> Option<PathBuf> {
-    let p = PathBuf::from("tests/fixtures/ext");
-    if p.is_dir() {
-        Some(p)
-    } else {
-        None
-    }
+    let roots = [
+        workspace_root().join("tests/fixtures/ext"),
+        PathBuf::from("tests/fixtures/ext"),
+        PathBuf::from("../tests/fixtures/ext"),
+        PathBuf::from("../../tests/fixtures/ext"),
+    ];
+    roots.into_iter().find(|p| p.is_dir())
 }
 
 fn resolve_fixture(rel: &str) -> Option<PathBuf> {
@@ -20,6 +30,8 @@ fn resolve_fixture(rel: &str) -> Option<PathBuf> {
     let candidates = [
         root.join("EVTX-ATTACK-SAMPLES").join(rel),
         root.join("hayabusa-sample-evtx").join(rel),
+        root.join("hayabusa-sample-evtx/EVTX-ATTACK-SAMPLES")
+            .join(rel),
         root.join(rel),
     ];
     candidates.into_iter().find(|p| p.is_file())
