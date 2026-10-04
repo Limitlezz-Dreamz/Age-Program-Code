@@ -6,8 +6,9 @@ import { CaseScreen } from "@/screens/CaseScreen";
 import { DashboardScreen } from "@/screens/DashboardScreen";
 import { DetectionsScreen } from "@/screens/DetectionsScreen";
 import { ExplorerScreen } from "@/screens/ExplorerScreen";
-import { PlaceholderScreen } from "@/screens/PlaceholderScreen";
+import { ExportScreen } from "@/screens/ExportScreen";
 import { PivotsScreen } from "@/screens/PivotsScreen";
+import { RulesScreen } from "@/screens/RulesScreen";
 import { SettingsScreen } from "@/screens/SettingsScreen";
 import { TimelineScreen } from "@/screens/TimelineScreen";
 import { useAppStore } from "@/stores/app-store";
@@ -30,19 +31,9 @@ function ScreenRouter() {
     case "pivots":
       return <PivotsScreen />;
     case "rules":
-      return (
-        <PlaceholderScreen
-          title="Rules"
-          blurb="Pack manager, profiles, and re-run detection arrive in M6."
-        />
-      );
+      return <RulesScreen />;
     case "export":
-      return (
-        <PlaceholderScreen
-          title="Export"
-          blurb="CSV/JSON/HTML export arrives in M6."
-        />
-      );
+      return <ExportScreen />;
     default:
       return <CaseScreen />;
   }

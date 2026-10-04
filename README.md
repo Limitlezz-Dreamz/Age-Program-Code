@@ -8,7 +8,7 @@ Cross-platform EVTX threat-hunting desktop app (Chainsaw-style workflow with a G
 
 ## Status
 
-Milestone **M5** (Timeline / Explorer / Pivots) complete. See `docs/milestones/`.
+Milestone **M6** (Rules manager + exports) complete. See `docs/milestones/`.
 
 ## Develop
 
@@ -21,6 +21,7 @@ cargo build -p lw-cli --release
 ./target/release/lw ingest path/to/logs --case /tmp/demo.lwcase --bench
 ./target/release/lw hunt --case /tmp/demo.lwcase --profile all
 ./target/release/lw detections --case /tmp/demo.lwcase
+./target/release/lw export --case /tmp/demo.lwcase --format csv -o /tmp/dets.csv
 ```
 
 ## License hygiene
@@ -34,4 +35,4 @@ cargo build -p lw-cli --release
 
 - Build spec and research report (project planning docs)
 - `CHANGELOG.md`
-- `docs/milestones/M0.md` … `M3.md`
+- `docs/milestones/M0.md` … `M6.md`

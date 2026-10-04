@@ -3,15 +3,24 @@
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
-use lw_core::{format_rfc3339_micros, CancellationToken, APP_NAME};
+use lw_core::{
+    format_rfc3339_micros, CancellationToken, Detection, DetectionKind, TriageState, APP_NAME,
+};
 use lw_detect::{hunt, HuntOptions};
 use lw_ingest::{ingest_paths, IngestEvent, IngestOptions};
 use lw_normalize::{default_4688_aliases, load_field_aliases};
+use lw_report::{
+    export_detections_csv, export_detections_html, export_detections_json,
+    export_detections_jsonl,
+};
 use lw_rules::RuleProfile;
 use lw_store::{
     create_case, open_case, open_write_conn, query_detections, query_events, record_inputs,
-    stats_summary, write_run_stats, DetectionQuery, EventQuery, SortDir, StoreWriteCmd,
+    stats_summary, write_run_stats, DetectionQuery, DetectionRow, EventQuery, SortDir,
+    StoreWriteCmd,
 };
+use std::fs::File;
+use std::io::BufWriter;
 use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 
@@ -80,6 +89,18 @@ enum Commands {
         #[arg(long, default_value_t = 100)]
         limit: u64,
     },
+    /// Export detections to CSV / JSON / JSONL / HTML
+    Export {
+        #[arg(long)]
+        case: PathBuf,
+        /// Output path
+        #[arg(long, short)]
+        out: PathBuf,
+        #[arg(long, value_enum, default_value_t = ExportFormatCli::Csv)]
+        format: ExportFormatCli,
+        #[arg(long, default_value_t = 100_000)]
+        limit: u64,
+    },
 }
 
 #[derive(Debug, Clone, clap::ValueEnum)]
@@ -92,6 +113,14 @@ enum StatsFormat {
 enum DetFormat {
     Table,
     Json,
+}
+
+#[derive(Debug, Clone, clap::ValueEnum)]
+enum ExportFormatCli {
+    Csv,
+    Json,
+    Jsonl,
+    Html,
 }
 
 fn main() -> Result<()> {
@@ -130,6 +159,12 @@ fn main() -> Result<()> {
             format,
             limit,
         } => cmd_detections(case, format, limit),
+        Commands::Export {
+            case,
+            out,
+            format,
+            limit,
+        } => cmd_export(case, out, format, limit),
     }
 }
 
@@ -391,4 +426,74 @@ fn truncate(s: &str, max: usize) -> String {
     } else {
         format!("{}…", &s[..max.saturating_sub(1)])
     }
+}
+
+fn detection_from_row(d: DetectionRow) -> Detection {
+    let triage = match d.triage.as_str() {
+        "reviewed" => TriageState::Reviewed,
+        "false_positive" => TriageState::FalsePositive,
+        "escalated" => TriageState::Escalated,
+        _ => TriageState::New,
+    };
+    Detection {
+        id: d.id,
+        rule_uid: d.rule_uid,
+        rule_title: d.rule_title,
+        rule_author: d.rule_author,
+        rule_source: d.rule_source,
+        severity: d.severity,
+        status: d.status,
+        mitre: d.mitre,
+        ts: d.ts,
+        computer: d.computer,
+        user: d.user,
+        event_ids: d.event_ids,
+        kind: if d.kind.starts_with("correlation") {
+            DetectionKind::Correlation {
+                ctype: d.kind,
+                group: Default::default(),
+                count: d.event_count,
+            }
+        } else {
+            DetectionKind::Single
+        },
+        summary: d.summary,
+        fp_hint: d.fp_hint,
+        triage,
+    }
+}
+
+fn cmd_export(
+    case: PathBuf,
+    out: PathBuf,
+    format: ExportFormatCli,
+    limit: u64,
+) -> Result<()> {
+    let store = open_case(&case)?;
+    let name = store
+        .info()
+        .map(|i| i.name)
+        .unwrap_or_else(|_| "case".into());
+    let root = store.root.clone();
+    store.shutdown()?;
+    let conn = open_write_conn(&root)?;
+    let page = query_detections(
+        &conn,
+        &DetectionQuery {
+            offset: 0,
+            limit,
+            ..DetectionQuery::default()
+        },
+    )?;
+    let dets: Vec<Detection> = page.rows.into_iter().map(detection_from_row).collect();
+    let file = File::create(&out).with_context(|| format!("create {}", out.display()))?;
+    let mut w = BufWriter::new(file);
+    match format {
+        ExportFormatCli::Csv => export_detections_csv(&dets, &mut w)?,
+        ExportFormatCli::Json => export_detections_json(&dets, &mut w)?,
+        ExportFormatCli::Jsonl => export_detections_jsonl(&dets, &mut w)?,
+        ExportFormatCli::Html => export_detections_html(&name, &dets, &mut w)?,
+    }
+    println!("wrote {} detections → {}", dets.len(), out.display());
+    Ok(())
 }

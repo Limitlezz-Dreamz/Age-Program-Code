@@ -25,6 +25,7 @@ lw-normalize = { workspace = true }
 lw-store = { workspace = true }
 lw-rules = { workspace = true }
 lw-detect = { workspace = true }
+lw-report = { workspace = true }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"

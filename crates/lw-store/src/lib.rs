@@ -8,6 +8,7 @@ mod detections;
 mod files;
 mod pivots;
 mod query;
+mod rules;
 mod schema;
 mod searches;
 mod timeline;
@@ -25,6 +26,11 @@ pub use detections::{
 pub use files::list_files;
 pub use pivots::{
     logon_type_name, query_logon_summary, query_pivots, LogonSummaryRow, PivotQuery, PivotRow,
+};
+pub use rules::{
+    add_suppression, apply_suppressions_to_detections, delete_suppression, disabled_rule_uids,
+    get_rule, list_suppressions, query_rules, set_rule_enabled, upsert_rules, RuleDetail, RuleQuery,
+    RuleRow, SuppressionInput, SuppressionRow,
 };
 pub use query::{
     get_event, query_events, stats_summary, DecodedPayload, EventDetail, EventQuery, EventRow,

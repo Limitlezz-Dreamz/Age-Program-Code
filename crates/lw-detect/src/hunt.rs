@@ -7,8 +7,9 @@ use lw_rules::{
     load_rules_from_dir, load_rules_from_zip, LoadReport, RuleProfile, RuleSet,
 };
 use lw_store::{
-    begin_run, clear_run_detections, finish_run, insert_detections, iter_events_ordered,
-    open_write_conn,
+    apply_suppressions_to_detections, begin_run, clear_run_detections, disabled_rule_uids,
+    finish_run, insert_detections, iter_events_ordered, list_suppressions, open_write_conn,
+    upsert_rules,
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -97,6 +98,36 @@ pub fn hunt(
     let (filtered, skipped) = filter_rules(std::mem::take(&mut set.rules), opts.profile);
     load_report.skipped_profile = skipped;
     set.rules = filtered;
+
+    let conn = open_write_conn(&opts.case_dir)?;
+
+    // Persist rule catalog (preserves prior enabled flags) then drop disabled rules.
+    {
+        let rows: Vec<_> = set
+            .rules
+            .iter()
+            .map(|r| {
+                (
+                    r.uid.clone(),
+                    r.title.clone(),
+                    r.author.clone(),
+                    r.severity.as_str().to_string(),
+                    r.status.clone(),
+                    r.tags.clone(),
+                    serde_json::to_string(&r.source).unwrap_or_else(|_| "{}".into()),
+                    r.yaml.clone(),
+                    r.unmapped,
+                )
+            })
+            .collect();
+        let _ = upsert_rules(&conn, &rows);
+    }
+    let disabled = disabled_rule_uids(&conn).unwrap_or_default();
+    if !disabled.is_empty() {
+        let before = set.rules.len();
+        set.rules.retain(|r| !disabled.contains(&r.uid));
+        load_report.skipped_profile += (before - set.rules.len()) as u64;
+    }
     load_report.loaded = set.rules.len() as u64;
 
     let mut engine = RsigmaEngine::new(mapping);
@@ -104,7 +135,6 @@ pub fn hunt(
     load_report.errors.extend(eng_report.errors);
     load_report.parse_errors += eng_report.parse_errors;
 
-    let conn = open_write_conn(&opts.case_dir)?;
     let profile_json = serde_json::json!({
         "profile": format!("{:?}", opts.profile).to_ascii_lowercase(),
         "builtins": opts.builtins,
@@ -140,6 +170,8 @@ pub fn hunt(
     cancel.check()?;
     all.extend(run_analyzers(&conn)?);
     all = dedup_detections(all);
+    let suppressions = list_suppressions(&conn).unwrap_or_default();
+    all = apply_suppressions_to_detections(all, &suppressions);
     insert_detections(&conn, run_id, &all)?;
     finish_run(&conn, run_id, "ok")?;
 

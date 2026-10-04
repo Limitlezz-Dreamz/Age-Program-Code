@@ -2,18 +2,30 @@ use crate::dto::*;
 use crate::error::ApiError;
 use crate::persist;
 use crate::state::{AppState, OpenCase};
-use lw_core::{CancellationToken, CaseInfo, Severity, TriageState, APP_NAME};
+use lw_core::{
+    CancellationToken, CaseInfo, Detection, DetectionKind, Severity, TriageState, APP_NAME,
+};
 use lw_detect::{hunt, HuntOptions};
 use lw_ingest::{discover, ingest_paths, IngestEvent, IngestOptions};
 use lw_normalize::{default_4688_aliases, load_field_aliases};
-use lw_rules::RuleProfile;
-use lw_store::{
-    create_case, dashboard_summary, delete_saved_search, get_detection, get_event, list_files,
-    list_saved_searches, open_case, query_detections, query_events, query_logon_summary,
-    query_pivots, record_inputs, save_search, set_triage, stats_summary, timeline_histogram,
-    timeline_list, write_run_stats, DetectionQuery, EventQuery, FieldFilter, HistogramQuery,
-    PivotQuery, SortDir, StoreWriteCmd, TimelineListQuery,
+use lw_report::{
+    export_detections_csv, export_detections_html, export_detections_json, export_detections_jsonl,
 };
+use lw_rules::{
+    download_sigma_pack, find_mapping_path, import_pack_dir, list_packs, load_logsource_mapping,
+    packs_dir, RuleProfile, SigmaPackKind, SIGMA_DRL_NOTICE,
+};
+use lw_store::{
+    add_suppression, create_case, dashboard_summary, delete_saved_search, delete_suppression,
+    get_detection, get_event, get_rule, list_files, list_saved_searches, list_suppressions,
+    open_case, query_detections, query_events, query_logon_summary, query_pivots, query_rules,
+    record_inputs, save_search, set_rule_enabled, set_triage, stats_summary, timeline_histogram,
+    timeline_list, write_run_stats, DetectionQuery, DetectionRow, EventQuery, FieldFilter,
+    HistogramQuery, PivotQuery, RuleQuery, SortDir, StoreWriteCmd, SuppressionInput,
+    TimelineListQuery,
+};
+use std::fs::File;
+use std::io::BufWriter;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -1107,6 +1119,300 @@ pub fn delete_saved_search_cmd(state: State<'_, AppState>, id: i64) -> Result<()
         let conn = lw_store::open_write_conn(&open.store.root)?;
         delete_saved_search(&conn, id)?;
         Ok(())
+    })
+}
+
+fn rule_row_dto(r: lw_store::RuleRow) -> RuleRowDto {
+    RuleRowDto {
+        rule_uid: r.rule_uid,
+        title: r.title,
+        author: r.author,
+        level: r.level,
+        status: r.status,
+        tags: r.tags,
+        source_json: r.source_json,
+        enabled: r.enabled,
+        hit_count: r.hit_count,
+        unmapped: r.unmapped,
+    }
+}
+
+fn detection_from_row(d: DetectionRow) -> Detection {
+    let triage = match d.triage.as_str() {
+        "reviewed" => TriageState::Reviewed,
+        "false_positive" => TriageState::FalsePositive,
+        "escalated" => TriageState::Escalated,
+        _ => TriageState::New,
+    };
+    Detection {
+        id: d.id,
+        rule_uid: d.rule_uid,
+        rule_title: d.rule_title,
+        rule_author: d.rule_author,
+        rule_source: d.rule_source,
+        severity: d.severity,
+        status: d.status,
+        mitre: d.mitre,
+        ts: d.ts,
+        computer: d.computer,
+        user: d.user,
+        event_ids: d.event_ids,
+        kind: if d.kind.starts_with("correlation") {
+            DetectionKind::Correlation {
+                ctype: d.kind,
+                group: Default::default(),
+                count: d.event_count,
+            }
+        } else {
+            DetectionKind::Single
+        },
+        summary: d.summary,
+        fp_hint: d.fp_hint,
+        triage,
+    }
+}
+
+#[tauri::command]
+pub fn list_rule_packs_cmd() -> Result<Vec<RulePackDto>, ApiError> {
+    let packs = list_packs(packs_dir())?;
+    Ok(packs
+        .into_iter()
+        .map(|p| RulePackDto {
+            id: p.id,
+            version: p.version,
+            kind: p.kind,
+            source_url: p.source_url,
+            downloaded_at: p.downloaded_at,
+            blake3: p.blake3,
+            rule_count: p.rule_count,
+            path: p.path,
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn import_rule_pack_cmd(path: String, pack_id: String) -> Result<RulePackDto, ApiError> {
+    let mapping_path =
+        find_mapping_path().ok_or_else(|| ApiError::new("no_mapping", "mapping not found"))?;
+    let mapping = load_logsource_mapping(mapping_path)?;
+    let version = time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap_or_else(|_| "0.0.0".into());
+    let (m, _) = import_pack_dir(path, &pack_id, &version, &mapping, None)?;
+    Ok(RulePackDto {
+        id: m.id,
+        version: m.version,
+        kind: m.kind,
+        source_url: m.source_url,
+        downloaded_at: m.downloaded_at,
+        blake3: m.blake3,
+        rule_count: m.rule_count,
+        path: m.path,
+    })
+}
+
+#[tauri::command]
+pub fn download_rule_pack_cmd(kind: String) -> Result<RulePackDto, ApiError> {
+    let k = SigmaPackKind::parse(&kind).ok_or_else(|| {
+        ApiError::new(
+            "bad_kind",
+            format!("unknown pack kind: {kind} (try core, emerging, all)"),
+        )
+    })?;
+    let mapping_path =
+        find_mapping_path().ok_or_else(|| ApiError::new("no_mapping", "mapping not found"))?;
+    let mapping = load_logsource_mapping(mapping_path)?;
+    let (m, _) = download_sigma_pack(k, &mapping, None)?;
+    Ok(RulePackDto {
+        id: m.id,
+        version: m.version,
+        kind: m.kind,
+        source_url: m.source_url,
+        downloaded_at: m.downloaded_at,
+        blake3: m.blake3,
+        rule_count: m.rule_count,
+        path: m.path,
+    })
+}
+
+#[tauri::command]
+pub fn drl_notice_cmd() -> String {
+    SIGMA_DRL_NOTICE.to_string()
+}
+
+#[tauri::command]
+pub fn list_rules_cmd(
+    state: State<'_, AppState>,
+    q: RuleQueryDto,
+) -> Result<RulePageDto, ApiError> {
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let page = query_rules(
+            &conn,
+            &RuleQuery {
+                offset: q.offset,
+                limit: if q.limit == 0 { 200 } else { q.limit },
+                text: q.text,
+                enabled_only: q.enabled_only,
+            },
+        )?;
+        Ok(RulePageDto {
+            rows: page.rows.into_iter().map(rule_row_dto).collect(),
+            total: page.total,
+            offset: page.offset,
+        })
+    })
+}
+
+#[tauri::command]
+pub fn get_rule_cmd(state: State<'_, AppState>, uid: String) -> Result<RuleDetailDto, ApiError> {
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let d = get_rule(&conn, &uid)?;
+        Ok(RuleDetailDto {
+            rule: rule_row_dto(d.rule),
+            yaml: d.yaml,
+        })
+    })
+}
+
+#[tauri::command]
+pub fn set_rule_enabled_cmd(
+    state: State<'_, AppState>,
+    uid: String,
+    enabled: bool,
+) -> Result<(), ApiError> {
+    with_open_case(&state, |open| {
+        let conn = lw_store::open_write_conn(&open.store.root)?;
+        set_rule_enabled(&conn, &uid, enabled)?;
+        Ok(())
+    })
+}
+
+#[tauri::command]
+pub fn list_suppressions_cmd(state: State<'_, AppState>) -> Result<Vec<SuppressionDto>, ApiError> {
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let rows = list_suppressions(&conn)?;
+        Ok(rows
+            .into_iter()
+            .map(|s| SuppressionDto {
+                id: s.id,
+                rule_uid: s.rule_uid,
+                field: s.field,
+                value: s.value,
+                note: s.note,
+                created_at: s.created_at,
+            })
+            .collect())
+    })
+}
+
+#[tauri::command]
+pub fn add_suppression_cmd(
+    state: State<'_, AppState>,
+    s: SuppressionInputDto,
+) -> Result<i64, ApiError> {
+    with_open_case(&state, |open| {
+        let conn = lw_store::open_write_conn(&open.store.root)?;
+        Ok(add_suppression(
+            &conn,
+            &SuppressionInput {
+                rule_uid: s.rule_uid,
+                field: s.field,
+                value: s.value,
+                note: s.note,
+            },
+        )?)
+    })
+}
+
+#[tauri::command]
+pub fn delete_suppression_cmd(state: State<'_, AppState>, id: i64) -> Result<(), ApiError> {
+    with_open_case(&state, |open| {
+        let conn = lw_store::open_write_conn(&open.store.root)?;
+        delete_suppression(&conn, id)?;
+        Ok(())
+    })
+}
+
+#[tauri::command]
+pub async fn rerun_detection_cmd(
+    state: State<'_, AppState>,
+    profile: String,
+    builtins: bool,
+    rules_path: Option<String>,
+) -> Result<HuntReportDto, ApiError> {
+    let root = {
+        let guard = state.case.lock().map_err(|_| ApiError::msg("lock"))?;
+        let open = guard
+            .as_ref()
+            .ok_or_else(|| ApiError::new("no_case", "no case open"))?;
+        open.store.root.clone()
+    };
+    let cancel = CancellationToken::new();
+    *state.cancel.lock().map_err(|_| ApiError::msg("lock"))? = Some(cancel.clone());
+    let opts = HuntOptions {
+        case_dir: root,
+        profile: RuleProfile::parse(&profile).unwrap_or(RuleProfile::Default),
+        builtins,
+        rules_path: rules_path.map(PathBuf::from),
+        ..Default::default()
+    };
+    let report = tauri::async_runtime::spawn_blocking(move || hunt(&opts, &cancel))
+        .await
+        .map_err(|e| ApiError::msg(e.to_string()))??
+        .0;
+    Ok(HuntReportDto {
+        run_id: report.run_id,
+        detections: report.detections,
+        events_scanned: report.events_scanned,
+        elapsed_ms: report.elapsed_ms,
+        profile: report.profile,
+    })
+}
+
+#[tauri::command]
+pub fn export_detections_cmd(
+    state: State<'_, AppState>,
+    req: ExportRequestDto,
+) -> Result<ExportResultDto, ApiError> {
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let name = open.store.info()?.name;
+        let page = query_detections(
+            &conn,
+            &DetectionQuery {
+                offset: 0,
+                limit: if req.limit == 0 { 100_000 } else { req.limit },
+                ..DetectionQuery::default()
+            },
+        )?;
+        let dets: Vec<Detection> = page.rows.into_iter().map(detection_from_row).collect();
+        let file = File::create(&req.path)
+            .map_err(|e| ApiError::new("io", e.to_string()))?;
+        let mut w = BufWriter::new(file);
+        match req.format.to_ascii_lowercase().as_str() {
+            "csv" => export_detections_csv(&dets, &mut w)
+                .map_err(|e| ApiError::new("io", e.to_string()))?,
+            "json" => export_detections_json(&dets, &mut w)
+                .map_err(|e| ApiError::new("io", e.to_string()))?,
+            "jsonl" => export_detections_jsonl(&dets, &mut w)
+                .map_err(|e| ApiError::new("io", e.to_string()))?,
+            "html" => export_detections_html(&name, &dets, &mut w)
+                .map_err(|e| ApiError::new("io", e.to_string()))?,
+            other => {
+                return Err(ApiError::new(
+                    "bad_format",
+                    format!("unsupported export format: {other}"),
+                ))
+            }
+        }
+        Ok(ExportResultDto {
+            path: req.path,
+            rows: dets.len() as u64,
+            format: req.format,
+        })
     })
 }
 

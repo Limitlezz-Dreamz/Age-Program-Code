@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0 — M6 Rules / Export (unreleased)
+
+### Added
+
+- Rules screen: pack import/download, enable/disable, suppressions, detail, re-run hunt
+- Export screen + `lw export`: CSV / JSON / JSONL / offline HTML (DRL + MITRE notices)
+- Store: rules catalog + suppressions; hunt respects disabled rules and suppressions
+- Tauri IPC for packs, rules, suppressions, re-run, export
+
 ## 0.1.0 — M5 Timeline / Explorer / Pivots (unreleased)
 
 ### Added

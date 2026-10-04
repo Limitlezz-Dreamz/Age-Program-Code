@@ -45,6 +45,18 @@ pub fn run() {
             commands::list_saved_searches_cmd,
             commands::save_search_cmd,
             commands::delete_saved_search_cmd,
+            commands::list_rule_packs_cmd,
+            commands::import_rule_pack_cmd,
+            commands::download_rule_pack_cmd,
+            commands::drl_notice_cmd,
+            commands::list_rules_cmd,
+            commands::get_rule_cmd,
+            commands::set_rule_enabled_cmd,
+            commands::list_suppressions_cmd,
+            commands::add_suppression_cmd,
+            commands::delete_suppression_cmd,
+            commands::rerun_detection_cmd,
+            commands::export_detections_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

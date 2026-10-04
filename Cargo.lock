@@ -2609,6 +2609,7 @@ dependencies = [
  "lw-detect",
  "lw-ingest",
  "lw-normalize",
+ "lw-report",
  "lw-rules",
  "lw-store",
  "num_cpus",
@@ -2633,6 +2634,7 @@ dependencies = [
  "lw-detect",
  "lw-ingest",
  "lw-normalize",
+ "lw-report",
  "lw-rules",
  "lw-store",
  "serde_json",
@@ -2711,6 +2713,9 @@ name = "lw-report"
 version = "0.1.0"
 dependencies = [
  "lw-core",
+ "lw-rules",
+ "serde",
+ "serde_json",
  "thiserror 2.0.21",
 ]
 

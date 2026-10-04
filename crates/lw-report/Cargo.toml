@@ -8,4 +8,7 @@ publish = false
 
 [dependencies]
 lw-core = { workspace = true }
+lw-rules = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }

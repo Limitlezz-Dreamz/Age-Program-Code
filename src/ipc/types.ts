@@ -408,3 +408,81 @@ export type NavId =
   | "rules"
   | "export"
   | "settings";
+
+export type RulePackDto = {
+  id: string;
+  version: string;
+  kind: string;
+  source_url: string | null;
+  downloaded_at: string;
+  blake3: string;
+  rule_count: number;
+  path: string;
+};
+
+export type RuleRowDto = {
+  rule_uid: string;
+  title: string;
+  author: string | null;
+  level: string | null;
+  status: string | null;
+  tags: string[];
+  source_json: string;
+  enabled: boolean;
+  hit_count: number;
+  unmapped: boolean;
+};
+
+export type RuleQueryDto = {
+  offset: number;
+  limit: number;
+  text?: string | null;
+  enabled_only?: boolean | null;
+};
+
+export type RulePageDto = {
+  rows: RuleRowDto[];
+  total: number;
+  offset: number;
+};
+
+export type RuleDetailDto = {
+  rule: RuleRowDto;
+  yaml: string;
+};
+
+export type SuppressionDto = {
+  id: number;
+  rule_uid: string | null;
+  field: string;
+  value: string;
+  note: string | null;
+  created_at: number;
+};
+
+export type SuppressionInputDto = {
+  rule_uid?: string | null;
+  field: string;
+  value: string;
+  note?: string | null;
+};
+
+export type ExportRequestDto = {
+  path: string;
+  format: string;
+  limit: number;
+};
+
+export type ExportResultDto = {
+  path: string;
+  rows: number;
+  format: string;
+};
+
+export type HuntReportDto = {
+  run_id: number;
+  detections: number;
+  events_scanned: number;
+  elapsed_ms: number;
+  profile: string;
+};

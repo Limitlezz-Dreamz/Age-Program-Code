@@ -574,3 +574,111 @@ pub struct SavedSearchDto {
     pub query_json: String,
     pub created_at: i64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct RulePackDto {
+    pub id: String,
+    pub version: String,
+    pub kind: String,
+    pub source_url: Option<String>,
+    pub downloaded_at: String,
+    pub blake3: String,
+    pub rule_count: u64,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct RuleRowDto {
+    pub rule_uid: String,
+    pub title: String,
+    pub author: Option<String>,
+    pub level: Option<String>,
+    pub status: Option<String>,
+    pub tags: Vec<String>,
+    pub source_json: String,
+    pub enabled: bool,
+    pub hit_count: u64,
+    pub unmapped: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct RuleQueryDto {
+    pub offset: u64,
+    pub limit: u64,
+    pub text: Option<String>,
+    pub enabled_only: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct RulePageDto {
+    pub rows: Vec<RuleRowDto>,
+    pub total: u64,
+    pub offset: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct RuleDetailDto {
+    pub rule: RuleRowDto,
+    pub yaml: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct SuppressionDto {
+    pub id: i64,
+    pub rule_uid: Option<String>,
+    pub field: String,
+    pub value: String,
+    pub note: Option<String>,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct SuppressionInputDto {
+    pub rule_uid: Option<String>,
+    pub field: String,
+    pub value: String,
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct ExportRequestDto {
+    pub path: String,
+    pub format: String,
+    pub limit: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct ExportResultDto {
+    pub path: String,
+    pub rows: u64,
+    pub format: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct HuntReportDto {
+    pub run_id: i64,
+    pub detections: u64,
+    pub events_scanned: u64,
+    pub elapsed_ms: u64,
+    pub profile: String,
+}

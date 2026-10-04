@@ -5,15 +5,15 @@ import type { NavId } from "@/ipc/types";
 import { GlobalFilterBar } from "@/components/layout/GlobalFilterBar";
 import { cn } from "@/lib/utils";
 
-const NAV: { id: NavId; label: string; soon?: boolean }[] = [
+const NAV: { id: NavId; label: string }[] = [
   { id: "case", label: "Case" },
   { id: "dashboard", label: "Dashboard" },
   { id: "detections", label: "Detections" },
   { id: "timeline", label: "Timeline" },
   { id: "explorer", label: "Explorer" },
   { id: "pivots", label: "Pivots" },
-  { id: "rules", label: "Rules", soon: true },
-  { id: "export", label: "Export", soon: true },
+  { id: "rules", label: "Rules" },
+  { id: "export", label: "Export" },
   { id: "settings", label: "Settings" },
 ];
 
@@ -54,14 +54,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
             >
-              <span className="flex items-center justify-between gap-2">
-                {item.label}
-                {item.soon && (
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                    soon
-                  </span>
-                )}
-              </span>
+              {item.label}
             </button>
           ))}
         </nav>

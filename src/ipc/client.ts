@@ -12,18 +12,27 @@ import type {
   EventDetailDto,
   EventPageDto,
   EventQueryDto,
+  ExportRequestDto,
+  ExportResultDto,
   GlobalFilter,
   HistogramBucketDto,
   HistogramQueryDto,
+  HuntReportDto,
   IngestProgressMsg,
   LogonPageDto,
   PivotPageDto,
   PivotQueryDto,
   RecentCase,
+  RuleDetailDto,
+  RulePackDto,
+  RulePageDto,
+  RuleQueryDto,
   SavedSearchDto,
   SetTriageRequest,
   Settings,
   SourceFileDto,
+  SuppressionDto,
+  SuppressionInputDto,
   TimelineListQueryDto,
   TimelinePageDto,
 } from "./types";
@@ -90,4 +99,26 @@ export const ipc = {
   saveSearch: (name: string, queryJson: string) =>
     call<number>("save_search_cmd", { name, queryJson }),
   deleteSavedSearch: (id: number) => call<void>("delete_saved_search_cmd", { id }),
+  listRulePacks: () => call<RulePackDto[]>("list_rule_packs_cmd"),
+  importRulePack: (path: string, packId: string) =>
+    call<RulePackDto>("import_rule_pack_cmd", { path, packId }),
+  downloadRulePack: (kind: string) =>
+    call<RulePackDto>("download_rule_pack_cmd", { kind }),
+  drlNotice: () => call<string>("drl_notice_cmd"),
+  listRules: (q: RuleQueryDto) => call<RulePageDto>("list_rules_cmd", { q }),
+  getRule: (uid: string) => call<RuleDetailDto>("get_rule_cmd", { uid }),
+  setRuleEnabled: (uid: string, enabled: boolean) =>
+    call<void>("set_rule_enabled_cmd", { uid, enabled }),
+  listSuppressions: () => call<SuppressionDto[]>("list_suppressions_cmd"),
+  addSuppression: (s: SuppressionInputDto) =>
+    call<number>("add_suppression_cmd", { s }),
+  deleteSuppression: (id: number) => call<void>("delete_suppression_cmd", { id }),
+  rerunDetection: (profile: string, builtins: boolean, rulesPath?: string | null) =>
+    call<HuntReportDto>("rerun_detection_cmd", {
+      profile,
+      builtins,
+      rulesPath: rulesPath ?? null,
+    }),
+  exportDetections: (req: ExportRequestDto) =>
+    call<ExportResultDto>("export_detections_cmd", { req }),
 };
