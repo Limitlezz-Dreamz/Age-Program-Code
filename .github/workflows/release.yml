@@ -63,13 +63,9 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Prefer repo secrets when present; otherwise tauri.conf uses ad-hoc "-" on macOS.
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Only set Apple signing env when secrets exist. Empty strings break ad-hoc builds.
+          # Add APPLE_CERTIFICATE / APPLE_SIGNING_IDENTITY / APPLE_ID / APPLE_PASSWORD /
+          # APPLE_TEAM_ID in repo secrets for notarized macOS builds (see docs/packaging.md).
         with:
           tagName: v__VERSION__
           releaseName: Logwarden v__VERSION__
@@ -80,5 +76,5 @@ jobs:
             See `docs/packaging.md` for signing and verification notes.
           releaseDraft: true
           prerelease: false
-          includeUpdaterJson: false
+          uploadUpdaterJson: false
           args: ${{ matrix.args }}

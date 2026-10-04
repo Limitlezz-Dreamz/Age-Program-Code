@@ -62,9 +62,11 @@ git push origin v0.1.0
 | Windows | Unsigned | Configure Authenticode / Tauri signing keys in repo secrets |
 | Linux | Unsigned packages | Optional: GPG-sign release assets externally |
 
-Secrets consumed by the workflow when present: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`.
+For notarized macOS builds, add these **repo secrets** and wire them into `.github/workflows/release.yml` `env:`:
 
-Without Apple credentials, Apple Silicon builds remain ad-hoc signed so users can still open them after Gatekeeper approval.
+`APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`.
+
+Do **not** pass empty secret placeholders — blank `APPLE_*` env vars break ad-hoc signing. Without secrets, `signingIdentity: "-"` in `tauri.conf.json` is used.
 
 ## Version sync
 
