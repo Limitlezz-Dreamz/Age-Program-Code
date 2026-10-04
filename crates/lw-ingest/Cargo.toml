@@ -8,5 +8,22 @@ publish = false
 
 [dependencies]
 lw-core = { workspace = true }
+lw-normalize = { workspace = true }
+evtx = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+rayon = { workspace = true }
+walkdir = { workspace = true }
+num_cpus = { workspace = true }
+crossbeam-channel = { workspace = true }
+time = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+evtx = { workspace = true }
+serde_json = { workspace = true }
+num_cpus = { workspace = true }

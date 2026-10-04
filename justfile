@@ -47,9 +47,14 @@ deny:
 ci: fmt-check clippy test-rust deny tsc eslint vitest
     @echo "CI checks passed"
 
-# Placeholder for criterion benches (M1+)
+# Quick ingest benchmark against local fixtures
 bench:
-    @echo "No benches yet (M1). Run: cargo bench -p lw-ingest"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build -p lw-cli --release
+    CASE=$(mktemp -d)/bench.lwcase
+    ./target/release/lw ingest tests/fixtures/cc0/sample.evtx --case "$CASE" --no-hash --no-fts --bench
+    echo "Case: $CASE"
 
 # Fetch external EVTX fixtures (gitignored)
 fixtures:

@@ -1,17 +1,20 @@
 #![deny(unsafe_code)]
 
-//! lw-store — Logwarden workspace crate (M0 stub).
+//! SQLite case store: schema, writer thread, queries.
+
+mod case;
+mod query;
+mod schema;
+mod writer;
+
+pub use case::{create_case, open_case, record_inputs, write_run_stats, CaseStore};
+pub use query::{query_events, stats_summary, EventQuery, EventRow, Page, SortDir, StatsSummary};
+pub use writer::{spawn_writer, StoreWriteCmd, WriterHandle};
 
 pub fn crate_name() -> &'static str {
     env!("CARGO_PKG_NAME")
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn crate_name_is_set() {
-        assert!(!crate_name().is_empty());
-    }
-}
+#[path = "tests_integ.rs"]
+mod tests_integ;

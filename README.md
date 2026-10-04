@@ -8,14 +8,18 @@ Cross-platform EVTX threat-hunting desktop app (Chainsaw-style workflow with a G
 
 ## Status
 
-Milestone **M0** (scaffolding + CI) in progress. See `docs/milestones/` and the build spec.
+Milestone **M1** (headless ingest / normalize / store) complete. See `docs/milestones/`.
 
 ## Develop
 
 ```bash
 npm install
 just ci          # fmt, clippy, tests, deny, tsc, eslint, vitest
-just dev         # tauri dev (needs OS webview deps)
+just fixtures    # optional: fetch external EVTX sample sets
+cargo run -p lw-cli -- release 2>/dev/null || cargo build -p lw-cli --release
+./target/release/lw ingest path/to/logs --case /tmp/demo.lwcase --bench
+./target/release/lw stats --case /tmp/demo.lwcase
+just dev         # tauri GUI shell (M3+)
 ```
 
 ## License hygiene

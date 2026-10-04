@@ -1,6 +1,16 @@
 # Changelog
 
-## 0.1.0 — M0 scaffolding (unreleased)
+## 0.1.0 — M1 ingest/normalize/store (unreleased)
+
+### Added
+
+- `lw-ingest`: EVTX discovery (extension + magic), SHA-256, parallel `evtx` parse, cancellation
+- `lw-normalize`: flat event model per Section 6 (attributes shapes, UserData, Data[], aliases)
+- `lw-store`: SQLite case DB, writer thread, batch insert, FTS finalize, paged queries
+- `lw ingest` / `lw stats` CLI commands
+- CC0 sample under `tests/fixtures/cc0/`; fixture-backed tests (`LW_FIXTURES=1`)
+
+## 0.1.0 — M0 scaffolding
 
 ### Added
 
