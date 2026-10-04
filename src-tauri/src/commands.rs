@@ -1389,8 +1389,7 @@ pub fn export_detections_cmd(
             },
         )?;
         let dets: Vec<Detection> = page.rows.into_iter().map(detection_from_row).collect();
-        let file = File::create(&req.path)
-            .map_err(|e| ApiError::new("io", e.to_string()))?;
+        let file = File::create(&req.path).map_err(|e| ApiError::new("io", e.to_string()))?;
         let mut w = BufWriter::new(file);
         match req.format.to_ascii_lowercase().as_str() {
             "csv" => export_detections_csv(&dets, &mut w)

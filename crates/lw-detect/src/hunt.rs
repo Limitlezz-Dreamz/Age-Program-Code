@@ -9,7 +9,7 @@ use lw_rules::{
 use lw_store::{
     apply_suppressions_to_detections, begin_run, clear_run_detections, disabled_rule_uids,
     finish_run, insert_detections, iter_events_ordered, list_suppressions, open_write_conn,
-    upsert_rules,
+    upsert_rules, RuleUpsert,
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -103,21 +103,19 @@ pub fn hunt(
 
     // Persist rule catalog (preserves prior enabled flags) then drop disabled rules.
     {
-        let rows: Vec<_> = set
+        let rows: Vec<RuleUpsert> = set
             .rules
             .iter()
-            .map(|r| {
-                (
-                    r.uid.clone(),
-                    r.title.clone(),
-                    r.author.clone(),
-                    r.severity.as_str().to_string(),
-                    r.status.clone(),
-                    r.tags.clone(),
-                    serde_json::to_string(&r.source).unwrap_or_else(|_| "{}".into()),
-                    r.yaml.clone(),
-                    r.unmapped,
-                )
+            .map(|r| RuleUpsert {
+                rule_uid: r.uid.clone(),
+                title: r.title.clone(),
+                author: r.author.clone(),
+                level: r.severity.as_str().to_string(),
+                status: r.status.clone(),
+                tags: r.tags.clone(),
+                source_json: serde_json::to_string(&r.source).unwrap_or_else(|_| "{}".into()),
+                yaml: r.yaml.clone(),
+                unmapped: r.unmapped,
             })
             .collect();
         let _ = upsert_rules(&conn, &rows);

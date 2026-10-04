@@ -10,8 +10,7 @@ use lw_detect::{hunt, HuntOptions};
 use lw_ingest::{ingest_paths, IngestEvent, IngestOptions};
 use lw_normalize::{default_4688_aliases, load_field_aliases};
 use lw_report::{
-    export_detections_csv, export_detections_html, export_detections_json,
-    export_detections_jsonl,
+    export_detections_csv, export_detections_html, export_detections_json, export_detections_jsonl,
 };
 use lw_rules::RuleProfile;
 use lw_store::{
@@ -463,12 +462,7 @@ fn detection_from_row(d: DetectionRow) -> Detection {
     }
 }
 
-fn cmd_export(
-    case: PathBuf,
-    out: PathBuf,
-    format: ExportFormatCli,
-    limit: u64,
-) -> Result<()> {
+fn cmd_export(case: PathBuf, out: PathBuf, format: ExportFormatCli, limit: u64) -> Result<()> {
     let store = open_case(&case)?;
     let name = store
         .info()

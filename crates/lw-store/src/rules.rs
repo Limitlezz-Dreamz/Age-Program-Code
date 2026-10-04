@@ -48,29 +48,29 @@ pub struct SuppressionInput {
     pub note: Option<String>,
 }
 
-pub fn upsert_rules(
-    conn: &Connection,
-    rules: &[(
-        String,
-        String,
-        Option<String>,
-        String,
-        Option<String>,
-        Vec<String>,
-        String,
-        String,
-        bool,
-    )],
-) -> Result<()> {
+#[derive(Debug, Clone)]
+pub struct RuleUpsert {
+    pub rule_uid: String,
+    pub title: String,
+    pub author: Option<String>,
+    pub level: String,
+    pub status: Option<String>,
+    pub tags: Vec<String>,
+    pub source_json: String,
+    pub yaml: String,
+    pub unmapped: bool,
+}
+
+pub fn upsert_rules(conn: &Connection, rules: &[RuleUpsert]) -> Result<()> {
     let tx = conn
         .unchecked_transaction()
         .map_err(|e| Error::Sqlite(e.to_string()))?;
-    for (uid, title, author, level, status, tags, source_json, yaml, unmapped) in rules {
+    for r in rules {
         let enabled: i64 = tx
             .query_row(
                 "SELECT enabled FROM rules WHERE rule_uid=?1",
-                params![uid],
-                |r| r.get(0),
+                params![r.rule_uid],
+                |row| row.get(0),
             )
             .optional()
             .map_err(|e| Error::Sqlite(e.to_string()))?
@@ -87,15 +87,15 @@ pub fn upsert_rules(
                source_json=excluded.source_json,
                yaml=excluded.yaml",
             params![
-                uid,
-                title,
-                author,
-                level,
-                status,
-                serde_json::to_string(tags)?,
-                if *unmapped { "unmapped" } else { "mapped" },
-                source_json,
-                yaml,
+                r.rule_uid,
+                r.title,
+                r.author,
+                r.level,
+                r.status,
+                serde_json::to_string(&r.tags)?,
+                if r.unmapped { "unmapped" } else { "mapped" },
+                r.source_json,
+                r.yaml,
                 enabled,
             ],
         )
@@ -114,9 +114,8 @@ pub fn query_rules(conn: &Connection, q: &RuleQuery) -> Result<crate::query::Pag
     }
     if let Some(text) = &q.text {
         if !text.is_empty() {
-            where_parts.push(
-                "(title LIKE ? OR rule_uid LIKE ? OR IFNULL(author,'') LIKE ?)".into(),
-            );
+            where_parts
+                .push("(title LIKE ? OR rule_uid LIKE ? OR IFNULL(author,'') LIKE ?)".into());
             let pat = format!("%{text}%");
             params.push(pat.clone().into());
             params.push(pat.clone().into());
@@ -312,7 +311,10 @@ pub fn apply_suppressions_to_detections(
                     "summary" | "*" | "" => d.summary.as_str(),
                     other => {
                         // Field name match against summary text for MVP.
-                        if d.summary.to_ascii_lowercase().contains(&other.to_ascii_lowercase()) {
+                        if d.summary
+                            .to_ascii_lowercase()
+                            .contains(&other.to_ascii_lowercase())
+                        {
                             d.summary.as_str()
                         } else {
                             return false;
