@@ -8,7 +8,11 @@ use std::thread::JoinHandle;
 pub enum StoreWriteCmd {
     UpsertFile(SourceFile),
     InsertEvents(Vec<NormalizedEvent>),
-    Finalize { build_fts: bool },
+    Finalize {
+        build_fts: bool,
+    },
+    /// Block the sender until the writer has processed all prior commands.
+    Sync(std::sync::mpsc::Sender<()>),
     Shutdown,
 }
 
@@ -26,6 +30,14 @@ impl WriterHandle {
         self.tx
             .send(cmd)
             .map_err(|_| Error::msg("store writer channel closed"))
+    }
+
+    /// Wait until the writer has drained commands sent before this call.
+    pub fn sync(&self) -> Result<()> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.send(StoreWriteCmd::Sync(tx))?;
+        rx.recv()
+            .map_err(|_| Error::msg("store writer sync failed"))
     }
 
     pub fn join(mut self) -> Result<()> {
@@ -76,6 +88,9 @@ fn writer_loop(db_path: PathBuf, rx: crossbeam_channel::Receiver<StoreWriteCmd>)
             }
             StoreWriteCmd::Finalize { build_fts } => {
                 finalize(&mut conn, build_fts)?;
+            }
+            StoreWriteCmd::Sync(done) => {
+                let _ = done.send(());
             }
             StoreWriteCmd::Shutdown => break,
         }

@@ -1,60 +1,137 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { APP_NAME } from "@/lib/constants";
-import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
+import { AppShell } from "@/components/layout/AppShell";
+import { useDragDrop } from "@/hooks/useDragDrop";
+import { ipc } from "@/ipc/client";
+import { CaseScreen } from "@/screens/CaseScreen";
+import { PlaceholderScreen } from "@/screens/PlaceholderScreen";
+import { SettingsScreen } from "@/screens/SettingsScreen";
+import { useAppStore } from "@/stores/app-store";
+
+function ScreenRouter() {
+  const screen = useAppStore((s) => s.screen);
+  switch (screen) {
+    case "case":
+      return <CaseScreen />;
+    case "settings":
+      return <SettingsScreen />;
+    case "dashboard":
+      return (
+        <PlaceholderScreen
+          title="Dashboard"
+          blurb="Severity cards, top rules/hosts, and coverage warnings arrive in M4."
+        />
+      );
+    case "detections":
+      return (
+        <PlaceholderScreen
+          title="Detections"
+          blurb="Paged detections list and detail drawer arrive in M4."
+        />
+      );
+    case "timeline":
+      return (
+        <PlaceholderScreen
+          title="Timeline"
+          blurb="Histogram + merged event/detection lane view arrives in M5."
+        />
+      );
+    case "explorer":
+      return (
+        <PlaceholderScreen
+          title="Explorer"
+          blurb="Structured search across all events arrives in M5."
+        />
+      );
+    case "pivots":
+      return (
+        <PlaceholderScreen
+          title="Pivots"
+          blurb="Hosts, users, IPs, and logon summary arrive in M5."
+        />
+      );
+    case "rules":
+      return (
+        <PlaceholderScreen
+          title="Rules"
+          blurb="Pack manager, profiles, and re-run detection arrive in M6."
+        />
+      );
+    case "export":
+      return (
+        <PlaceholderScreen
+          title="Export"
+          blurb="CSV/JSON/HTML export arrives in M6."
+        />
+      );
+    default:
+      return <CaseScreen />;
+  }
+}
 
 function App() {
-  const [backendName, setBackendName] = useState(APP_NAME);
-  const [status, setStatus] = useState("Scaffold ready");
+  const setReady = useAppStore((s) => s.setReady);
+  const markBootstrapped = useAppStore((s) => s.markBootstrapped);
+  const setSettings = useAppStore((s) => s.setSettings);
+  const setRecent = useAppStore((s) => s.setRecent);
+  const setCase = useAppStore((s) => s.setCase);
+  const ready = useAppStore((s) => s.ready);
+
+  useDragDrop();
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const name = await invoke<string>("app_name");
-        if (!cancelled) {
-          setBackendName(name);
-          setStatus("Rust backend connected");
-        }
+        await ipc.appName();
+        if (cancelled) return;
+        const [settings, recent, current] = await Promise.all([
+          ipc.getSettings(),
+          ipc.recentCases(),
+          ipc.currentCase(),
+        ]);
+        if (cancelled) return;
+        setSettings(settings);
+        setRecent(recent);
+        setCase(current);
+        setReady(true);
       } catch {
         if (!cancelled) {
-          setStatus("Frontend-only mode (Tauri IPC unavailable)");
+          // Vitest / browser-only: still show shell with defaults
+          setSettings({
+            display_timezone: "UTC",
+            use_utc: true,
+            threads: 4,
+            fts_default: true,
+            hash_default: true,
+            rule_profile: "default",
+            builtins_default: true,
+            run_detection_default: true,
+            log_level: "info",
+            thresh_kerberoast: 10,
+            thresh_bruteforce: 10,
+            thresh_spray: 5,
+          });
+          markBootstrapped();
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setReady, markBootstrapped, setSettings, setRecent, setCase]);
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+        Loading…
+      </div>
+    );
+  }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-8 px-8 py-16">
-      <div className="space-y-3">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
-          Milestone M0
-        </p>
-        <h1 className="font-display text-5xl font-semibold tracking-tight text-foreground">
-          {backendName}
-        </h1>
-        <p className="max-w-xl text-lg text-muted-foreground">
-          Cross-platform EVTX threat hunting. Parse, detect, and triage Windows
-          event logs offline — Chainsaw-style workflow with a GUI.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={() => setStatus("Scaffolding complete — M1 next")}>
-          Continue
-        </Button>
-        <Button variant="outline" onClick={() => setStatus("Awaiting case ingest…")}>
-          Open case (soon)
-        </Button>
-      </div>
-
-      <p className="text-sm text-muted-foreground" data-testid="status">
-        {status}
-      </p>
-    </main>
+    <AppShell>
+      <ScreenRouter />
+    </AppShell>
   );
 }
 

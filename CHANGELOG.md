@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0 — M3 GUI shell (unreleased)
+
+### Added
+
+- Tauri IPC for case create/open/close/recent, add inputs, start/cancel analysis (Channel progress), settings
+- React app shell: left nav, global filter bar state, Case ingest screen, Settings
+- Drag-and-drop EVTX intake via Tauri webview events + dialog plugin
+- Placeholder screens for later milestones
+
 ## 0.1.0 — M2 rules/detection (unreleased)
 
 ### Added

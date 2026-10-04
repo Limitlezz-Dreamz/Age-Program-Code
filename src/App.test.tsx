@@ -5,16 +5,29 @@ import { APP_NAME } from "./lib/constants";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn().mockRejectedValue(new Error("no tauri")),
+  Channel: class {
+    onmessage: ((v: unknown) => void) | null = null;
+  },
+}));
+
+vi.mock("@tauri-apps/api/webview", () => ({
+  getCurrentWebview: () => ({
+    onDragDropEvent: vi.fn().mockResolvedValue(() => {}),
+  }),
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: vi.fn(),
 }));
 
 describe("App", () => {
-  it("renders the product name", async () => {
+  it("renders the shell with product name in the nav", async () => {
     render(<App />);
-    expect(screen.getByRole("heading", { name: APP_NAME })).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByTestId("status")).toHaveTextContent(
-        "Frontend-only mode (Tauri IPC unavailable)",
-      );
+      expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
     });
+    expect(screen.getAllByText(APP_NAME).length).toBeGreaterThan(0);
+    expect(screen.getByTestId("run-status")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create case" })).toBeInTheDocument();
   });
 });
