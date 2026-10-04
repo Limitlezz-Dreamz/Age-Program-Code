@@ -1,0 +1,8 @@
+# (Channel, EventID) -> short human description. Expanded in later milestones.
+Security:
+  4624: "An account was successfully logged on"
+  4625: "An account failed to log on"
+  1102: "The audit log was cleared"
+System:
+  104: "Event log cleared"
+  7045: "A service was installed in the system"

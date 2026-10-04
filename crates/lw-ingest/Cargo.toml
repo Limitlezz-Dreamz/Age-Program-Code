@@ -1,0 +1,12 @@
+[package]
+name = "lw-ingest"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "EVTX discovery and parsing for Logwarden"
+publish = false
+
+[dependencies]
+lw-core = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

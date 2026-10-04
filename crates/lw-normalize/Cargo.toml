@@ -1,0 +1,12 @@
+[package]
+name = "lw-normalize"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "EVTX JSON normalization for Logwarden"
+publish = false
+
+[dependencies]
+lw-core = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

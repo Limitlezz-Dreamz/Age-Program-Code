@@ -1,0 +1,11 @@
+[package]
+name = "lw-report"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "CSV/JSON/HTML export for Logwarden"
+publish = false
+
+[dependencies]
+lw-core = { workspace = true }
+thiserror = { workspace = true }

@@ -1,0 +1,43 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/lw-core",
+    "crates/lw-ingest",
+    "crates/lw-normalize",
+    "crates/lw-rules",
+    "crates/lw-detect",
+    "crates/lw-store",
+    "crates/lw-report",
+    "crates/lw-cli",
+    "src-tauri",
+]
+default-members = ["crates/lw-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Limitlezz-Dreamz/Age-Program-Code"
+rust-version = "1.85"
+
+[workspace.dependencies]
+lw-core = { path = "crates/lw-core" }
+lw-ingest = { path = "crates/lw-ingest" }
+lw-normalize = { path = "crates/lw-normalize" }
+lw-rules = { path = "crates/lw-rules" }
+lw-detect = { path = "crates/lw-detect" }
+lw-store = { path = "crates/lw-store" }
+lw-report = { path = "crates/lw-report" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

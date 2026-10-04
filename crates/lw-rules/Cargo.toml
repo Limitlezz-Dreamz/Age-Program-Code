@@ -1,0 +1,12 @@
+[package]
+name = "lw-rules"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sigma rule pack management for Logwarden"
+publish = false
+
+[dependencies]
+lw-core = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

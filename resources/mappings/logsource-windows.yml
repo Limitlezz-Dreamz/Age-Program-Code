@@ -1,0 +1,13 @@
+# Sigma logsource -> Channel/EventID (from Sigma taxonomy appendix).
+# Written by us; do not copy from GPL/AGPL tools.
+# Full Appendix A content lands in M2; M0 ships a stub.
+
+categories:
+  process_creation:
+    - { Channel: "Microsoft-Windows-Sysmon/Operational", EventID: 1 }
+    - { Channel: "Security", EventID: 4688 }
+
+services:
+  security: "Security"
+  system: "System"
+  sysmon: "Microsoft-Windows-Sysmon/Operational"
