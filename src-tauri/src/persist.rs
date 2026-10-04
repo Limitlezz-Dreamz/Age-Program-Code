@@ -4,16 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 
 pub fn app_data_dir() -> PathBuf {
-    if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
-        return PathBuf::from(xdg).join("logwarden");
-    }
-    if let Ok(home) = std::env::var("HOME") {
-        return PathBuf::from(home)
-            .join(".local")
-            .join("share")
-            .join("logwarden");
-    }
-    PathBuf::from("data").join("logwarden")
+    lw_core::data_dir()
 }
 
 pub fn ensure_app_dirs() -> Result<PathBuf, ApiError> {

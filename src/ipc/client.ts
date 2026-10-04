@@ -51,6 +51,7 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 
 export const ipc = {
   appName: () => call<string>("app_name"),
+  appVersion: () => call<string>("app_version"),
   getSettings: () => call<Settings>("get_settings"),
   setSettings: (settings: Settings) => call<void>("set_settings", { settings }),
   recentCases: () => call<RecentCase[]>("recent_cases"),

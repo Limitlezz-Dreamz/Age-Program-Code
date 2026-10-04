@@ -8,7 +8,7 @@ Cross-platform EVTX threat-hunting desktop app (Chainsaw-style workflow with a G
 
 ## Status
 
-Milestone **M6** (Rules manager + exports) complete. See `docs/milestones/`.
+Milestone **M7** (packaging / release) complete. See `docs/milestones/` and `docs/packaging.md`.
 
 ## Develop
 
@@ -17,6 +17,7 @@ npm install
 just ci          # fmt, clippy, tests, deny, tsc, eslint, vitest
 just fixtures    # optional: fetch external EVTX sample sets
 just dev         # Tauri GUI: create case, add EVTX, start/cancel analysis
+just bundle      # platform installers (deb/AppImage/NSIS/MSI/DMG)
 cargo build -p lw-cli --release
 ./target/release/lw ingest path/to/logs --case /tmp/demo.lwcase --bench
 ./target/release/lw hunt --case /tmp/demo.lwcase --profile all
@@ -35,4 +36,5 @@ cargo build -p lw-cli --release
 
 - Build spec and research report (project planning docs)
 - `CHANGELOG.md`
-- `docs/milestones/M0.md` … `M6.md`
+- `docs/milestones/M0.md` … `M7.md`
+- `docs/packaging.md`

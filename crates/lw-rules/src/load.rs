@@ -371,33 +371,19 @@ fn status_to_string(s: &Status) -> String {
     }
 }
 
-/// Locate builtin rules directory relative to CWD / crate / workspace.
+/// Locate builtin rules directory (bundled resources or workspace).
 pub fn find_builtins_dir() -> Option<PathBuf> {
-    let mut candidates = vec![
-        PathBuf::from("resources/builtin-rules"),
-        PathBuf::from("../resources/builtin-rules"),
-        PathBuf::from("../../resources/builtin-rules"),
-    ];
-    if let Ok(manifest) = std::env::var("CARGO_MANIFEST_DIR") {
-        let m = PathBuf::from(manifest);
-        candidates.push(m.join("../../resources/builtin-rules"));
-        candidates.push(m.join("../resources/builtin-rules"));
+    if let Some(root) = lw_core::resource_root() {
+        let p = root.join("builtin-rules");
+        if p.is_dir() {
+            return Some(p);
+        }
     }
-    candidates.into_iter().find(|p| p.is_dir())
+    None
 }
 
 pub fn find_mapping_path() -> Option<PathBuf> {
-    let mut candidates = vec![
-        PathBuf::from("resources/mappings/logsource-windows.yml"),
-        PathBuf::from("../resources/mappings/logsource-windows.yml"),
-        PathBuf::from("../../resources/mappings/logsource-windows.yml"),
-    ];
-    if let Ok(manifest) = std::env::var("CARGO_MANIFEST_DIR") {
-        let m = PathBuf::from(manifest);
-        candidates.push(m.join("../../resources/mappings/logsource-windows.yml"));
-        candidates.push(m.join("../resources/mappings/logsource-windows.yml"));
-    }
-    candidates.into_iter().find(|p| p.is_file())
+    lw_core::resource_file("mappings/logsource-windows.yml")
 }
 
 #[cfg(test)]

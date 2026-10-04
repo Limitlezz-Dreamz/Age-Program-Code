@@ -7,17 +7,35 @@ mod persist;
 mod state;
 
 use state::AppState;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let _ = persist::ensure_app_dirs();
-
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            // Packaged resources land under resource_dir/resources (see tauri.conf.json).
+            if let Ok(resource_dir) = app.path().resource_dir() {
+                let bundled = resource_dir.join("resources");
+                let root = if bundled.is_dir() {
+                    bundled
+                } else {
+                    resource_dir
+                };
+                lw_core::install_resource_root(root);
+            }
+            if let Ok(data) = app.path().app_data_dir() {
+                let _ = std::fs::create_dir_all(&data);
+                lw_core::install_data_dir(data);
+            }
+            let _ = persist::ensure_app_dirs();
+            Ok(())
+        })
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             commands::app_name,
+            commands::app_version,
             commands::greet,
             commands::get_settings,
             commands::set_settings,

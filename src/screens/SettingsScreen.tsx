@@ -10,10 +10,15 @@ export function SettingsScreen() {
   const setSettings = useAppStore((s) => s.setSettings);
   const [draft, setDraft] = useState<Settings | null>(settings);
   const [msg, setMsg] = useState<string | null>(null);
+  const [version, setVersion] = useState("0.1.0");
 
   useEffect(() => {
     setDraft(settings);
   }, [settings]);
+
+  useEffect(() => {
+    void ipc.appVersion().then(setVersion).catch(() => setVersion("0.1.0"));
+  }, []);
 
   if (!draft) {
     return <p className="text-muted-foreground">Loading settings…</p>;
@@ -167,13 +172,18 @@ export function SettingsScreen() {
       </section>
 
       <section className="rounded-lg border border-border/70 bg-card/20 p-4 text-sm text-muted-foreground">
-        <h2 className="mb-2 text-foreground">{APP_NAME} 0.1.0</h2>
+        <h2 className="mb-2 text-foreground">
+          {APP_NAME} {version}
+        </h2>
         <p>
           Offline EVTX threat hunting. Sigma packs use Detection Rule License (DRL)
           1.1 — author attribution required on every match.
         </p>
         <p className="mt-2">
           ATT&amp;CK® is a trademark of The MITRE Corporation. Built-in rules are MIT.
+        </p>
+        <p className="mt-2 text-xs">
+          Desktop packages: see docs/packaging.md · MIT OR Apache-2.0
         </p>
       </section>
     </div>

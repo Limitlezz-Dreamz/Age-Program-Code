@@ -20,19 +20,9 @@ pub struct RulePackManifest {
     pub path: String,
 }
 
-/// App data rules root: `$XDG_DATA_HOME/logwarden/rules` or `./data/logwarden/rules`.
+/// App data rules root: `$LOGWARDEN_DATA_DIR/rules` (or XDG / LOCALAPPDATA fallback).
 pub fn packs_dir() -> PathBuf {
-    if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
-        return PathBuf::from(xdg).join("logwarden").join("rules");
-    }
-    if let Ok(home) = std::env::var("HOME") {
-        return PathBuf::from(home)
-            .join(".local")
-            .join("share")
-            .join("logwarden")
-            .join("rules");
-    }
-    PathBuf::from("data").join("logwarden").join("rules")
+    lw_core::data_dir().join("rules")
 }
 
 pub fn pack_install_dir(root: &Path, pack_id: &str, version: &str) -> PathBuf {

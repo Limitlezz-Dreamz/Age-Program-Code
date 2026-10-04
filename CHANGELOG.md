@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0 — M7 Packaging / Release (unreleased)
+
+### Added
+
+- Tauri release workflow (`tauri-action`) for macOS (arm/intel), Linux, Windows draft releases
+- Bundled resources + `LOGWARDEN_RESOURCES` / `LOGWARDEN_DATA_DIR` runtime wiring
+- macOS ad-hoc signing; packaging docs; About shows live app version
+
 ## 0.1.0 — M6 Rules / Export (unreleased)
 
 ### Added

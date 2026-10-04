@@ -38,6 +38,11 @@ pub fn app_name() -> &'static str {
 }
 
 #[tauri::command]
+pub fn app_version() -> &'static str {
+    lw_core::APP_VERSION
+}
+
+#[tauri::command]
 pub fn greet(name: String) -> String {
     format!("Hello, {name}! Welcome to {APP_NAME}.")
 }

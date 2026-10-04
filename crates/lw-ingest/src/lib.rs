@@ -15,7 +15,7 @@ use lw_core::{
 };
 use lw_normalize::{default_4688_aliases, FieldAliasRule};
 use rayon::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -282,14 +282,7 @@ pub fn crate_name() -> &'static str {
     env!("CARGO_PKG_NAME")
 }
 
-/// Resolve a path relative to the workspace resources dir when present.
+/// Resolve field-aliases YAML from bundled / workspace resources.
 pub fn default_aliases_path() -> Option<PathBuf> {
-    let candidates = [
-        Path::new("resources/mappings/fields-windows.yml"),
-        Path::new("../resources/mappings/fields-windows.yml"),
-    ];
-    candidates
-        .iter()
-        .find(|p| p.exists())
-        .map(|p| p.to_path_buf())
+    lw_core::resource_file("mappings/fields-windows.yml")
 }

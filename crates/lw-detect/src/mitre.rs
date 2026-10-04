@@ -24,11 +24,7 @@ pub fn load_attack_json(path: impl AsRef<Path>) -> lw_core::Result<()> {
 
 fn attack_map() -> &'static HashMap<String, AttackEntry> {
     ATTACK.get_or_init(|| {
-        for p in [
-            "resources/mitre/attack.json",
-            "../resources/mitre/attack.json",
-            "../../resources/mitre/attack.json",
-        ] {
+        if let Some(p) = lw_core::resource_file("mitre/attack.json") {
             if let Ok(text) = fs::read_to_string(p) {
                 if let Ok(map) = serde_json::from_str(&text) {
                     return map;
