@@ -3,6 +3,8 @@ import { AppShell } from "@/components/layout/AppShell";
 import { useDragDrop } from "@/hooks/useDragDrop";
 import { ipc } from "@/ipc/client";
 import { CaseScreen } from "@/screens/CaseScreen";
+import { DashboardScreen } from "@/screens/DashboardScreen";
+import { DetectionsScreen } from "@/screens/DetectionsScreen";
 import { PlaceholderScreen } from "@/screens/PlaceholderScreen";
 import { SettingsScreen } from "@/screens/SettingsScreen";
 import { useAppStore } from "@/stores/app-store";
@@ -15,19 +17,9 @@ function ScreenRouter() {
     case "settings":
       return <SettingsScreen />;
     case "dashboard":
-      return (
-        <PlaceholderScreen
-          title="Dashboard"
-          blurb="Severity cards, top rules/hosts, and coverage warnings arrive in M4."
-        />
-      );
+      return <DashboardScreen />;
     case "detections":
-      return (
-        <PlaceholderScreen
-          title="Detections"
-          blurb="Paged detections list and detail drawer arrive in M4."
-        />
-      );
+      return <DetectionsScreen />;
     case "timeline":
       return (
         <PlaceholderScreen

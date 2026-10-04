@@ -1,6 +1,7 @@
 use lw_core::{Error, Result, TsMicros};
-use rusqlite::{params_from_iter, Connection};
+use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EventQuery {
@@ -199,6 +200,358 @@ pub fn query_events(conn: &Connection, q: &EventQuery) -> Result<Page<EventRow>>
         total,
         offset: q.offset,
     })
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecodedPayload {
+    pub field: String,
+    pub encoding: String,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventDetail {
+    pub id: i64,
+    pub file_id: i64,
+    pub record_id: u64,
+    pub ts: TsMicros,
+    pub event_id: u32,
+    pub channel: String,
+    pub provider: String,
+    pub computer: String,
+    pub level: Option<u8>,
+    pub user_name: Option<String>,
+    pub src_ip: Option<String>,
+    pub logon_type: Option<i64>,
+    pub source_path: Option<String>,
+    pub description: Option<String>,
+    pub fields: Map<String, Value>,
+    pub raw_json: Option<String>,
+    pub xml: Option<String>,
+    pub decoded: Option<DecodedPayload>,
+    pub related_detection_ids: Vec<i64>,
+}
+
+pub fn get_event(conn: &Connection, id: i64) -> Result<EventDetail> {
+    let row = conn
+        .query_row(
+            "SELECT e.id, e.file_id, e.record_id, e.ts, e.event_id,
+                    c.name, p.name, h.name, e.level, e.user_name, e.src_ip, e.logon_type,
+                    e.fields_json, e.raw_zstd, f.path
+             FROM events e
+             JOIN dict_channel c ON c.id = e.channel_id
+             JOIN dict_provider p ON p.id = e.provider_id
+             JOIN dict_computer h ON h.id = e.computer_id
+             LEFT JOIN files f ON f.id = e.file_id
+             WHERE e.id=?1",
+            params![id],
+            |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, i64>(1)?,
+                    r.get::<_, i64>(2)? as u64,
+                    r.get::<_, i64>(3)?,
+                    r.get::<_, i64>(4)? as u32,
+                    r.get::<_, String>(5)?,
+                    r.get::<_, String>(6)?,
+                    r.get::<_, String>(7)?,
+                    r.get::<_, Option<i64>>(8)?.map(|v| v as u8),
+                    r.get::<_, Option<String>>(9)?,
+                    r.get::<_, Option<String>>(10)?,
+                    r.get::<_, Option<i64>>(11)?,
+                    r.get::<_, String>(12)?,
+                    r.get::<_, Option<Vec<u8>>>(13)?,
+                    r.get::<_, Option<String>>(14)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|e| Error::Sqlite(e.to_string()))?
+        .ok_or_else(|| Error::msg(format!("event {id} not found")))?;
+
+    let (
+        id,
+        file_id,
+        record_id,
+        ts,
+        event_id,
+        channel,
+        provider,
+        computer,
+        level,
+        user_name,
+        src_ip,
+        logon_type,
+        fields_json,
+        raw_zstd,
+        source_path,
+    ) = row;
+
+    let fields: Map<String, Value> = serde_json::from_str(&fields_json).unwrap_or_default();
+    let raw_json = raw_zstd.and_then(|blob| {
+        zstd::decode_all(blob.as_slice())
+            .ok()
+            .and_then(|bytes| String::from_utf8(bytes).ok())
+    });
+    let xml = Some(fields_to_xml(
+        &channel, event_id, &provider, &computer, &fields,
+    ));
+    let decoded = try_decode_encoded(&fields);
+    let description = event_description(&channel, event_id);
+
+    let mut related_detection_ids = Vec::new();
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT detection_id FROM detection_events WHERE event_id=?1 ORDER BY detection_id LIMIT 200",
+            )
+            .map_err(|e| Error::Sqlite(e.to_string()))?;
+        let rows = stmt
+            .query_map(params![id], |r| r.get::<_, i64>(0))
+            .map_err(|e| Error::Sqlite(e.to_string()))?;
+        for row in rows {
+            related_detection_ids.push(row.map_err(|e| Error::Sqlite(e.to_string()))?);
+        }
+    }
+
+    Ok(EventDetail {
+        id,
+        file_id,
+        record_id,
+        ts,
+        event_id,
+        channel,
+        provider,
+        computer,
+        level,
+        user_name,
+        src_ip,
+        logon_type,
+        source_path,
+        description,
+        fields,
+        raw_json,
+        xml,
+        decoded,
+        related_detection_ids,
+    })
+}
+
+fn event_description(channel: &str, event_id: u32) -> Option<String> {
+    // Minimal built-in map; resources/event-descriptions.yml is the longer-term source.
+    let key = (channel.to_ascii_lowercase(), event_id);
+    let desc = match (key.0.as_str(), key.1) {
+        ("security", 4624) => "An account was successfully logged on",
+        ("security", 4625) => "An account failed to log on",
+        ("security", 4688) => "A new process has been created",
+        ("security", 1102) => "The audit log was cleared",
+        ("system", 104) => "Event log cleared",
+        ("system", 7045) => "A service was installed in the system",
+        (_, 1) if channel.to_ascii_lowercase().contains("sysmon") => "Process Create",
+        (_, 3) if channel.to_ascii_lowercase().contains("sysmon") => "Network connection",
+        (_, 10) if channel.to_ascii_lowercase().contains("sysmon") => "Process Access",
+        (_, 4104) => "PowerShell script block logging",
+        _ => return None,
+    };
+    Some(desc.into())
+}
+
+fn fields_to_xml(
+    channel: &str,
+    event_id: u32,
+    provider: &str,
+    computer: &str,
+    fields: &Map<String, Value>,
+) -> String {
+    let mut out = String::from("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<Event>\n");
+    out.push_str("  <System>\n");
+    out.push_str(&format!(
+        "    <Provider Name=\"{}\"/>\n",
+        xml_escape(provider)
+    ));
+    out.push_str(&format!("    <EventID>{event_id}</EventID>\n"));
+    out.push_str(&format!("    <Channel>{}</Channel>\n", xml_escape(channel)));
+    out.push_str(&format!(
+        "    <Computer>{}</Computer>\n",
+        xml_escape(computer)
+    ));
+    out.push_str("  </System>\n  <EventData>\n");
+    let mut keys: Vec<_> = fields.keys().collect();
+    keys.sort();
+    for k in keys {
+        let v = fields.get(k).map(value_to_plain).unwrap_or_default();
+        out.push_str(&format!(
+            "    <Data Name=\"{}\">{}</Data>\n",
+            xml_escape(k),
+            xml_escape(&v)
+        ));
+    }
+    out.push_str("  </EventData>\n</Event>\n");
+    out
+}
+
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
+fn value_to_plain(v: &Value) -> String {
+    match v {
+        Value::Null => String::new(),
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) => n.to_string(),
+        Value::String(s) => s.clone(),
+        other => other.to_string(),
+    }
+}
+
+fn try_decode_encoded(fields: &Map<String, Value>) -> Option<DecodedPayload> {
+    const CANDIDATES: &[&str] = &[
+        "CommandLine",
+        "ScriptBlockText",
+        "Payload",
+        "Image",
+        "Command",
+    ];
+    for key in CANDIDATES {
+        let Some(Value::String(s)) = fields.get(*key) else {
+            continue;
+        };
+        if let Some(text) = try_b64_utf16le(s) {
+            return Some(DecodedPayload {
+                field: (*key).into(),
+                encoding: "base64-utf16le".into(),
+                text,
+            });
+        }
+        if let Some(text) = try_b64_utf8(s) {
+            return Some(DecodedPayload {
+                field: (*key).into(),
+                encoding: "base64-utf8".into(),
+                text,
+            });
+        }
+    }
+    // Also scan all string fields for -enc / -EncodedCommand style blobs.
+    for (key, val) in fields {
+        let Value::String(s) = val else { continue };
+        if let Some(blob) = extract_enc_blob(s) {
+            if let Some(text) = try_b64_utf16le(&blob).or_else(|| try_b64_utf8(&blob)) {
+                return Some(DecodedPayload {
+                    field: key.clone(),
+                    encoding: "powershell-enc".into(),
+                    text,
+                });
+            }
+        }
+    }
+    None
+}
+
+fn extract_enc_blob(s: &str) -> Option<String> {
+    let lower = s.to_ascii_lowercase();
+    for marker in ["-enc ", "-encodedcommand ", "-e "] {
+        if let Some(idx) = lower.find(marker) {
+            let rest = s[idx + marker.len()..].trim();
+            let token = rest.split_whitespace().next()?;
+            if token.len() >= 16 {
+                return Some(token.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn try_b64_utf16le(s: &str) -> Option<String> {
+    let cleaned: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+    if cleaned.len() < 16 || cleaned.len() % 4 != 0 {
+        return None;
+    }
+    if !cleaned
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'/' || b == b'=')
+    {
+        return None;
+    }
+    let bytes = b64_decode(&cleaned)?;
+    if bytes.len() < 4 || bytes.len() % 2 != 0 {
+        return None;
+    }
+    let mut u16s = Vec::with_capacity(bytes.len() / 2);
+    for chunk in bytes.chunks_exact(2) {
+        u16s.push(u16::from_le_bytes([chunk[0], chunk[1]]));
+    }
+    let text = String::from_utf16(&u16s).ok()?;
+    if text
+        .chars()
+        .filter(|c| c.is_control() && *c != '\n' && *c != '\r' && *c != '\t')
+        .count()
+        > 2
+    {
+        return None;
+    }
+    if text.trim().is_empty() {
+        return None;
+    }
+    Some(text)
+}
+
+fn try_b64_utf8(s: &str) -> Option<String> {
+    let cleaned: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+    if cleaned.len() < 16 {
+        return None;
+    }
+    let bytes = b64_decode(&cleaned)?;
+    let text = String::from_utf8(bytes).ok()?;
+    if text
+        .chars()
+        .any(|c| c.is_control() && c != '\n' && c != '\r' && c != '\t')
+    {
+        return None;
+    }
+    if text.trim().is_empty() || !text.is_ascii() {
+        return None;
+    }
+    Some(text)
+}
+
+fn b64_decode(s: &str) -> Option<Vec<u8>> {
+    // Minimal base64 decoder (no extra crate).
+    fn val(c: u8) -> Option<u8> {
+        match c {
+            b'A'..=b'Z' => Some(c - b'A'),
+            b'a'..=b'z' => Some(c - b'a' + 26),
+            b'0'..=b'9' => Some(c - b'0' + 52),
+            b'+' => Some(62),
+            b'/' => Some(63),
+            b'=' => Some(0),
+            _ => None,
+        }
+    }
+    let bytes = s.as_bytes();
+    if bytes.len() % 4 != 0 {
+        return None;
+    }
+    let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
+    for chunk in bytes.chunks_exact(4) {
+        let (a, b, c, d) = (
+            val(chunk[0])?,
+            val(chunk[1])?,
+            val(chunk[2])?,
+            val(chunk[3])?,
+        );
+        out.push((a << 2) | (b >> 4));
+        if chunk[2] != b'=' {
+            out.push((b << 4) | (c >> 2));
+        }
+        if chunk[3] != b'=' {
+            out.push((c << 6) | d);
+        }
+    }
+    Some(out)
 }
 
 pub fn stats_summary(conn: &Connection) -> Result<StatsSummary> {

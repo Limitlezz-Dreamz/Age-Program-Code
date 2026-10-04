@@ -187,7 +187,6 @@ pub struct CaseStatsDto {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts-rs", ts(export))]
-#[allow(dead_code)] // reserved for M4 query IPC
 pub struct GlobalFilter {
     pub time_from: Option<i64>,
     pub time_to: Option<i64>,
@@ -196,5 +195,199 @@ pub struct GlobalFilter {
     pub users: Vec<String>,
     pub channels: Vec<String>,
     pub event_ids: Vec<u32>,
+    pub triage: Vec<String>,
+    pub mitre_tactic: Option<String>,
     pub text: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct SeverityCountsDto {
+    pub critical: u64,
+    pub high: u64,
+    pub medium: u64,
+    pub low: u64,
+    pub informational: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct NamedCountDto {
+    pub name: String,
+    pub count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct CoverageWarningDto {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct TimeBucketDto {
+    pub ts: i64,
+    pub count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct DashboardSummaryDto {
+    pub severity: SeverityCountsDto,
+    pub total_detections: u64,
+    pub top_rules: Vec<NamedCountDto>,
+    pub top_hosts: Vec<NamedCountDto>,
+    pub top_users: Vec<NamedCountDto>,
+    pub top_tactics: Vec<NamedCountDto>,
+    pub files: u64,
+    pub files_with_errors: u64,
+    pub events: u64,
+    pub first_ts: Option<i64>,
+    pub last_ts: Option<i64>,
+    pub channels: Vec<NamedCountDto>,
+    pub coverage: Vec<CoverageWarningDto>,
+    pub detections_over_time: Vec<TimeBucketDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct MitreRefDto {
+    pub technique: Option<String>,
+    pub tactic: Option<String>,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct RuleSourceDto {
+    pub kind: String,
+    pub pack: Option<String>,
+    pub version: Option<String>,
+    pub path: Option<String>,
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct DetectionRowDto {
+    pub id: i64,
+    pub run_id: i64,
+    pub rule_uid: String,
+    pub rule_title: String,
+    pub rule_author: Option<String>,
+    pub rule_source: RuleSourceDto,
+    pub severity: String,
+    pub status: Option<String>,
+    pub mitre: Vec<MitreRefDto>,
+    pub ts: i64,
+    pub computer: String,
+    pub user: Option<String>,
+    pub kind: String,
+    pub event_count: u64,
+    pub summary: String,
+    pub fp_hint: Option<String>,
+    pub triage: String,
+    pub triage_note: Option<String>,
+    pub event_ids: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct LinkedEventRefDto {
+    pub id: i64,
+    pub ts: i64,
+    pub event_id: u32,
+    pub channel: String,
+    pub computer: String,
+    pub user_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct DetectionDetailDto {
+    pub detection: DetectionRowDto,
+    pub group_json: Option<String>,
+    pub linked_events: Vec<LinkedEventRefDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct DetectionQueryDto {
+    pub offset: u64,
+    pub limit: u64,
+    pub sort_col: String,
+    pub sort_dir: String,
+    pub severities: Vec<String>,
+    pub rule_uid: Option<String>,
+    pub text: Option<String>,
+    pub time_from: Option<i64>,
+    pub time_to: Option<i64>,
+    pub computers: Vec<String>,
+    pub users: Vec<String>,
+    pub triage: Vec<String>,
+    pub mitre_tactic: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct DetectionPageDto {
+    pub rows: Vec<DetectionRowDto>,
+    pub total: u64,
+    pub offset: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct DecodedPayloadDto {
+    pub field: String,
+    pub encoding: String,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct EventDetailDto {
+    pub id: i64,
+    pub file_id: i64,
+    pub record_id: u64,
+    pub ts: i64,
+    pub event_id: u32,
+    pub channel: String,
+    pub provider: String,
+    pub computer: String,
+    pub level: Option<u8>,
+    pub user_name: Option<String>,
+    pub src_ip: Option<String>,
+    pub logon_type: Option<i64>,
+    pub source_path: Option<String>,
+    pub description: Option<String>,
+    pub fields: serde_json::Map<String, serde_json::Value>,
+    pub raw_json: Option<String>,
+    pub xml: Option<String>,
+    pub decoded: Option<DecodedPayloadDto>,
+    pub related_detection_ids: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct SetTriageRequest {
+    pub detection_ids: Vec<i64>,
+    pub state: String,
+    pub note: Option<String>,
 }

@@ -184,17 +184,79 @@ pub struct DetectionRow {
     pub kind: String,
     pub event_count: u64,
     pub summary: String,
+    pub fp_hint: Option<String>,
     pub triage: String,
+    pub triage_note: Option<String>,
     pub event_ids: Vec<i64>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LinkedEventRef {
+    pub id: i64,
+    pub ts: TsMicros,
+    pub event_id: u32,
+    pub channel: String,
+    pub computer: String,
+    pub user_name: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DetectionDetail {
+    pub detection: DetectionRow,
+    pub group_json: Option<String>,
+    pub linked_events: Vec<LinkedEventRef>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DetectionQuery {
     pub offset: u64,
     pub limit: u64,
+    pub sort_col: String,
+    pub sort_dir: crate::query::SortDir,
     pub severity_min: Option<Severity>,
+    pub severities: Vec<Severity>,
     pub rule_uid: Option<String>,
     pub text: Option<String>,
+    pub time_from: Option<TsMicros>,
+    pub time_to: Option<TsMicros>,
+    pub computers: Vec<String>,
+    pub users: Vec<String>,
+    pub triage: Vec<String>,
+    pub mitre_tactic: Option<String>,
+}
+
+impl Default for DetectionQuery {
+    fn default() -> Self {
+        Self {
+            offset: 0,
+            limit: 100,
+            sort_col: "severity".into(),
+            sort_dir: crate::query::SortDir::Desc,
+            severity_min: None,
+            severities: Vec::new(),
+            rule_uid: None,
+            text: None,
+            time_from: None,
+            time_to: None,
+            computers: Vec::new(),
+            users: Vec::new(),
+            triage: Vec::new(),
+            mitre_tactic: None,
+        }
+    }
+}
+
+fn detection_sort_column(col: &str) -> &'static str {
+    match col {
+        "ts" | "time" => "ts",
+        "severity" | "sev" => "severity",
+        "rule" | "rule_title" => "rule_title",
+        "computer" | "host" => "computer",
+        "user" | "user_name" => "user_name",
+        "count" | "event_count" => "event_count",
+        "triage" => "triage",
+        _ => "severity",
+    }
 }
 
 pub fn query_detections(
@@ -207,14 +269,72 @@ pub fn query_detections(
         where_parts.push("severity >= ?".into());
         params.push((sev as u8 as i64).into());
     }
+    if !q.severities.is_empty() {
+        let placeholders = q
+            .severities
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(",");
+        where_parts.push(format!("severity IN ({placeholders})"));
+        for s in &q.severities {
+            params.push((*s as u8 as i64).into());
+        }
+    }
     if let Some(uid) = &q.rule_uid {
         where_parts.push("rule_uid = ?".into());
         params.push(uid.clone().into());
     }
+    if let Some(t) = q.time_from {
+        where_parts.push("ts >= ?".into());
+        params.push(t.into());
+    }
+    if let Some(t) = q.time_to {
+        where_parts.push("ts <= ?".into());
+        params.push(t.into());
+    }
+    if !q.computers.is_empty() {
+        let placeholders = q
+            .computers
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(",");
+        where_parts.push(format!("computer IN ({placeholders})"));
+        for c in &q.computers {
+            params.push(c.clone().into());
+        }
+    }
+    if !q.users.is_empty() {
+        let placeholders = q.users.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        where_parts.push(format!("user_name IN ({placeholders})"));
+        for u in &q.users {
+            params.push(u.clone().into());
+        }
+    }
+    if !q.triage.is_empty() {
+        let placeholders = q.triage.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        where_parts.push(format!("triage IN ({placeholders})"));
+        for t in &q.triage {
+            params.push(t.clone().into());
+        }
+    }
+    if let Some(tactic) = &q.mitre_tactic {
+        if !tactic.is_empty() {
+            where_parts.push("mitre_json LIKE ?".into());
+            params.push(format!("%{tactic}%").into());
+        }
+    }
     if let Some(text) = &q.text {
         if !text.is_empty() {
-            where_parts.push("summary LIKE ?".into());
-            params.push(format!("%{text}%").into());
+            where_parts.push(
+                "(summary LIKE ? OR rule_title LIKE ? OR rule_uid LIKE ? OR computer LIKE ? OR IFNULL(user_name,'') LIKE ?)"
+                    .into(),
+            );
+            let pat = format!("%{text}%");
+            for _ in 0..5 {
+                params.push(pat.clone().into());
+            }
         }
     }
     let where_sql = where_parts.join(" AND ");
@@ -227,11 +347,17 @@ pub fn query_detections(
         .map_err(|e| Error::Sqlite(e.to_string()))? as u64;
 
     let limit = q.limit.clamp(1, 1000);
+    let sort = detection_sort_column(&q.sort_col);
+    let dir = match q.sort_dir {
+        crate::query::SortDir::Asc => "ASC",
+        crate::query::SortDir::Desc => "DESC",
+    };
+    // Default secondary: severity DESC, ts ASC for stable hunting order.
     let sql = format!(
         "SELECT id, run_id, rule_uid, rule_title, rule_author, rule_source_json, severity, status,
-                mitre_json, ts, computer, user_name, kind, event_count, summary, triage
+                mitre_json, ts, computer, user_name, kind, event_count, summary, fp_hint, triage, triage_note
          FROM detections WHERE {where_sql}
-         ORDER BY severity DESC, ts ASC, id ASC
+         ORDER BY {sort} {dir}, severity DESC, ts ASC, id ASC
          LIMIT ? OFFSET ?"
     );
     let mut params2 = params;
@@ -260,7 +386,9 @@ pub fn query_detections(
                 r.get::<_, String>(12)?,
                 r.get::<_, i64>(13)? as u64,
                 r.get::<_, Option<String>>(14)?.unwrap_or_default(),
-                r.get::<_, String>(15)?,
+                r.get::<_, Option<String>>(15)?,
+                r.get::<_, String>(16)?,
+                r.get::<_, Option<String>>(17)?,
             ))
         })
         .map_err(|e| Error::Sqlite(e.to_string()))?;
@@ -283,7 +411,9 @@ pub fn query_detections(
             kind,
             event_count,
             summary,
+            fp_hint,
             triage,
+            triage_note,
         ) = row.map_err(|e| Error::Sqlite(e.to_string()))?;
         let event_ids = load_detection_event_ids(conn, id)?;
         out.push(DetectionRow {
@@ -304,7 +434,9 @@ pub fn query_detections(
             kind,
             event_count,
             summary,
+            fp_hint,
             triage,
+            triage_note,
             event_ids,
         });
     }
@@ -313,6 +445,156 @@ pub fn query_detections(
         total,
         offset: q.offset,
     })
+}
+
+pub fn get_detection(conn: &Connection, id: i64) -> Result<DetectionDetail> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, run_id, rule_uid, rule_title, rule_author, rule_source_json, severity, status,
+                    mitre_json, ts, computer, user_name, kind, event_count, summary, fp_hint, triage,
+                    triage_note, group_json
+             FROM detections WHERE id=?1",
+        )
+        .map_err(|e| Error::Sqlite(e.to_string()))?;
+    let row = stmt
+        .query_row(params![id], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, Option<String>>(4)?,
+                r.get::<_, String>(5)?,
+                r.get::<_, i64>(6)?,
+                r.get::<_, Option<String>>(7)?,
+                r.get::<_, Option<String>>(8)?,
+                r.get::<_, i64>(9)?,
+                r.get::<_, Option<String>>(10)?.unwrap_or_default(),
+                r.get::<_, Option<String>>(11)?,
+                r.get::<_, String>(12)?,
+                r.get::<_, i64>(13)? as u64,
+                r.get::<_, Option<String>>(14)?.unwrap_or_default(),
+                r.get::<_, Option<String>>(15)?,
+                r.get::<_, String>(16)?,
+                r.get::<_, Option<String>>(17)?,
+                r.get::<_, Option<String>>(18)?,
+            ))
+        })
+        .optional()
+        .map_err(|e| Error::Sqlite(e.to_string()))?
+        .ok_or_else(|| Error::msg(format!("detection {id} not found")))?;
+
+    let (
+        id,
+        run_id,
+        rule_uid,
+        rule_title,
+        rule_author,
+        source_json,
+        severity,
+        status,
+        mitre_json,
+        ts,
+        computer,
+        user,
+        kind,
+        event_count,
+        summary,
+        fp_hint,
+        triage,
+        triage_note,
+        group_json,
+    ) = row;
+    let event_ids = load_detection_event_ids(conn, id)?;
+    let detection = DetectionRow {
+        id,
+        run_id,
+        rule_uid,
+        rule_title,
+        rule_author,
+        rule_source: serde_json::from_str(&source_json).unwrap_or(RuleSource::Builtin),
+        severity: severity_from_i64(severity),
+        status,
+        mitre: mitre_json
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default(),
+        ts,
+        computer,
+        user,
+        kind,
+        event_count,
+        summary,
+        fp_hint,
+        triage,
+        triage_note,
+        event_ids: event_ids.clone(),
+    };
+    let linked_events = load_linked_events(conn, &event_ids)?;
+    Ok(DetectionDetail {
+        detection,
+        group_json,
+        linked_events,
+    })
+}
+
+fn load_linked_events(conn: &Connection, event_ids: &[i64]) -> Result<Vec<LinkedEventRef>> {
+    if event_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut out = Vec::with_capacity(event_ids.len().min(1000));
+    for eid in event_ids.iter().take(1000) {
+        let row = conn
+            .query_row(
+                "SELECT e.id, e.ts, e.event_id, c.name, h.name, e.user_name
+                 FROM events e
+                 JOIN dict_channel c ON c.id = e.channel_id
+                 JOIN dict_computer h ON h.id = e.computer_id
+                 WHERE e.id=?1",
+                params![eid],
+                |r| {
+                    Ok(LinkedEventRef {
+                        id: r.get(0)?,
+                        ts: r.get(1)?,
+                        event_id: r.get::<_, i64>(2)? as u32,
+                        channel: r.get(3)?,
+                        computer: r.get(4)?,
+                        user_name: r.get(5)?,
+                    })
+                },
+            )
+            .optional()
+            .map_err(|e| Error::Sqlite(e.to_string()))?;
+        if let Some(r) = row {
+            out.push(r);
+        }
+    }
+    Ok(out)
+}
+
+pub fn set_triage(
+    conn: &Connection,
+    detection_ids: &[i64],
+    state: TriageState,
+    note: Option<&str>,
+) -> Result<u64> {
+    if detection_ids.is_empty() {
+        return Ok(0);
+    }
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| Error::Sqlite(e.to_string()))?;
+    let mut updated = 0u64;
+    for id in detection_ids {
+        let n = tx
+            .execute(
+                "UPDATE detections SET triage=?1, triage_note=?2 WHERE id=?3",
+                params![state.as_str(), note, id],
+            )
+            .map_err(|e| Error::Sqlite(e.to_string()))?;
+        updated += n as u64;
+    }
+    tx.commit().map_err(|e| Error::Sqlite(e.to_string()))?;
+    Ok(updated)
 }
 
 fn load_detection_event_ids(conn: &Connection, detection_id: i64) -> Result<Vec<i64>> {

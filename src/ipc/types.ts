@@ -119,7 +119,145 @@ export type GlobalFilter = {
   users: string[];
   channels: string[];
   event_ids: number[];
+  triage: string[];
+  mitre_tactic?: string | null;
   text?: string | null;
+};
+
+export type SeverityCountsDto = {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  informational: number;
+};
+
+export type NamedCountDto = { name: string; count: number };
+export type CoverageWarningDto = { code: string; message: string };
+export type TimeBucketDto = { ts: number; count: number };
+
+export type DashboardSummaryDto = {
+  severity: SeverityCountsDto;
+  total_detections: number;
+  top_rules: NamedCountDto[];
+  top_hosts: NamedCountDto[];
+  top_users: NamedCountDto[];
+  top_tactics: NamedCountDto[];
+  files: number;
+  files_with_errors: number;
+  events: number;
+  first_ts: number | null;
+  last_ts: number | null;
+  channels: NamedCountDto[];
+  coverage: CoverageWarningDto[];
+  detections_over_time: TimeBucketDto[];
+};
+
+export type MitreRefDto = {
+  technique: string | null;
+  tactic: string | null;
+  name: string | null;
+};
+
+export type RuleSourceDto = {
+  kind: string;
+  pack?: string | null;
+  version?: string | null;
+  path?: string | null;
+  url?: string | null;
+};
+
+export type DetectionRowDto = {
+  id: number;
+  run_id: number;
+  rule_uid: string;
+  rule_title: string;
+  rule_author: string | null;
+  rule_source: RuleSourceDto;
+  severity: string;
+  status: string | null;
+  mitre: MitreRefDto[];
+  ts: number;
+  computer: string;
+  user: string | null;
+  kind: string;
+  event_count: number;
+  summary: string;
+  fp_hint: string | null;
+  triage: string;
+  triage_note: string | null;
+  event_ids: number[];
+};
+
+export type LinkedEventRefDto = {
+  id: number;
+  ts: number;
+  event_id: number;
+  channel: string;
+  computer: string;
+  user_name: string | null;
+};
+
+export type DetectionDetailDto = {
+  detection: DetectionRowDto;
+  group_json: string | null;
+  linked_events: LinkedEventRefDto[];
+};
+
+export type DetectionQueryDto = {
+  offset: number;
+  limit: number;
+  sort_col: string;
+  sort_dir: string;
+  severities: string[];
+  rule_uid?: string | null;
+  text?: string | null;
+  time_from?: number | null;
+  time_to?: number | null;
+  computers: string[];
+  users: string[];
+  triage: string[];
+  mitre_tactic?: string | null;
+};
+
+export type DetectionPageDto = {
+  rows: DetectionRowDto[];
+  total: number;
+  offset: number;
+};
+
+export type DecodedPayloadDto = {
+  field: string;
+  encoding: string;
+  text: string;
+};
+
+export type EventDetailDto = {
+  id: number;
+  file_id: number;
+  record_id: number;
+  ts: number;
+  event_id: number;
+  channel: string;
+  provider: string;
+  computer: string;
+  level: number | null;
+  user_name: string | null;
+  src_ip: string | null;
+  logon_type: number | null;
+  source_path: string | null;
+  description: string | null;
+  fields: Record<string, unknown>;
+  raw_json: string | null;
+  xml: string | null;
+  decoded: DecodedPayloadDto | null;
+  related_detection_ids: number[];
+};
+
+export type SetTriageRequest = {
+  detection_ids: number[];
+  state: string;
+  note?: string | null;
 };
 
 export type NavId =

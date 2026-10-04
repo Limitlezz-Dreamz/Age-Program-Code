@@ -4,9 +4,16 @@ import type {
   ApiError,
   CaseInfoDto,
   CaseStatsDto,
+  DashboardSummaryDto,
+  DetectionDetailDto,
+  DetectionPageDto,
+  DetectionQueryDto,
   DiscoveryResult,
+  EventDetailDto,
+  GlobalFilter,
   IngestProgressMsg,
   RecentCase,
+  SetTriageRequest,
   Settings,
   SourceFileDto,
 } from "./types";
@@ -46,4 +53,14 @@ export const ipc = {
     channel.onmessage = onProgress;
     return call<number>("start_analysis", { opts, onProgress: channel });
   },
+  dashboardSummary: (filter?: GlobalFilter | null) =>
+    call<DashboardSummaryDto>("dashboard_summary_cmd", { filter: filter ?? null }),
+  queryDetections: (q: DetectionQueryDto, filter?: GlobalFilter | null) =>
+    call<DetectionPageDto>("query_detections_cmd", {
+      q,
+      filter: filter ?? null,
+    }),
+  getDetection: (id: number) => call<DetectionDetailDto>("get_detection_cmd", { id }),
+  getEvent: (id: number) => call<EventDetailDto>("get_event_cmd", { id }),
+  setTriage: (req: SetTriageRequest) => call<number>("set_triage_cmd", { req }),
 };

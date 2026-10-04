@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 
 const NAV: { id: NavId; label: string; soon?: boolean }[] = [
   { id: "case", label: "Case" },
-  { id: "dashboard", label: "Dashboard", soon: true },
-  { id: "detections", label: "Detections", soon: true },
+  { id: "dashboard", label: "Dashboard" },
+  { id: "detections", label: "Detections" },
   { id: "timeline", label: "Timeline", soon: true },
   { id: "explorer", label: "Explorer", soon: true },
   { id: "pivots", label: "Pivots", soon: true },

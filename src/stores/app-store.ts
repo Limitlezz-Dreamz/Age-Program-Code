@@ -65,6 +65,8 @@ const emptyFilter = (): GlobalFilter => ({
   users: [],
   channels: [],
   event_ids: [],
+  triage: [],
+  mitre_tactic: null,
   text: null,
 });
 

@@ -32,6 +32,11 @@ pub fn run() {
             commands::cancel_analysis,
             commands::start_analysis,
             commands::default_cases_dir,
+            commands::dashboard_summary_cmd,
+            commands::query_detections_cmd,
+            commands::get_detection_cmd,
+            commands::get_event_cmd,
+            commands::set_triage_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -62,5 +67,11 @@ mod export_ts {
         let _ = std::mem::size_of::<Settings>();
         let _ = std::mem::size_of::<CaseStatsDto>();
         let _ = std::mem::size_of::<GlobalFilter>();
+        let _ = std::mem::size_of::<DashboardSummaryDto>();
+        let _ = std::mem::size_of::<DetectionQueryDto>();
+        let _ = std::mem::size_of::<DetectionPageDto>();
+        let _ = std::mem::size_of::<DetectionDetailDto>();
+        let _ = std::mem::size_of::<EventDetailDto>();
+        let _ = std::mem::size_of::<SetTriageRequest>();
     }
 }

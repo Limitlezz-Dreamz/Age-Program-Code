@@ -2,14 +2,15 @@ use crate::dto::*;
 use crate::error::ApiError;
 use crate::persist;
 use crate::state::{AppState, OpenCase};
-use lw_core::{CancellationToken, CaseInfo, APP_NAME};
+use lw_core::{CancellationToken, CaseInfo, Severity, TriageState, APP_NAME};
 use lw_detect::{hunt, HuntOptions};
 use lw_ingest::{discover, ingest_paths, IngestEvent, IngestOptions};
 use lw_normalize::{default_4688_aliases, load_field_aliases};
 use lw_rules::RuleProfile;
 use lw_store::{
-    create_case, list_files, open_case, query_detections, record_inputs, stats_summary,
-    write_run_stats, DetectionQuery, StoreWriteCmd,
+    create_case, dashboard_summary, get_detection, get_event, list_files, open_case,
+    query_detections, record_inputs, set_triage, stats_summary, write_run_stats, DetectionQuery,
+    SortDir, StoreWriteCmd,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -464,6 +465,330 @@ pub async fn start_analysis(
 pub fn default_cases_dir() -> Result<String, ApiError> {
     let dir = persist::ensure_app_dirs()?.join("cases");
     Ok(dir.display().to_string())
+}
+
+fn with_open_case<T>(
+    state: &AppState,
+    f: impl FnOnce(&OpenCase) -> Result<T, ApiError>,
+) -> Result<T, ApiError> {
+    let guard = state.case.lock().map_err(|_| ApiError::msg("lock"))?;
+    let open = guard
+        .as_ref()
+        .ok_or_else(|| ApiError::new("no_case", "no case open"))?;
+    f(open)
+}
+
+fn parse_severity(s: &str) -> Option<Severity> {
+    match s.to_ascii_lowercase().as_str() {
+        "informational" | "info" => Some(Severity::Informational),
+        "low" => Some(Severity::Low),
+        "medium" | "med" => Some(Severity::Medium),
+        "high" => Some(Severity::High),
+        "critical" | "crit" => Some(Severity::Critical),
+        _ => None,
+    }
+}
+
+fn parse_triage(s: &str) -> Result<TriageState, ApiError> {
+    match s {
+        "new" => Ok(TriageState::New),
+        "reviewed" => Ok(TriageState::Reviewed),
+        "false_positive" => Ok(TriageState::FalsePositive),
+        "escalated" => Ok(TriageState::Escalated),
+        other => Err(ApiError::new(
+            "bad_triage",
+            format!("unknown triage state: {other}"),
+        )),
+    }
+}
+
+fn rule_source_dto(src: &lw_core::RuleSource) -> RuleSourceDto {
+    match src {
+        lw_core::RuleSource::Builtin => RuleSourceDto {
+            kind: "builtin".into(),
+            pack: None,
+            version: None,
+            path: None,
+            url: None,
+        },
+        lw_core::RuleSource::Sigma {
+            pack,
+            version,
+            path,
+            url,
+        } => RuleSourceDto {
+            kind: "sigma".into(),
+            pack: Some(pack.clone()),
+            version: Some(version.clone()),
+            path: Some(path.clone()),
+            url: url.clone(),
+        },
+    }
+}
+
+fn detection_row_dto(d: lw_store::DetectionRow) -> DetectionRowDto {
+    DetectionRowDto {
+        id: d.id,
+        run_id: d.run_id,
+        rule_uid: d.rule_uid,
+        rule_title: d.rule_title,
+        rule_author: d.rule_author,
+        rule_source: rule_source_dto(&d.rule_source),
+        severity: d.severity.as_str().into(),
+        status: d.status,
+        mitre: d
+            .mitre
+            .into_iter()
+            .map(|m| MitreRefDto {
+                technique: m.technique,
+                tactic: m.tactic,
+                name: m.name,
+            })
+            .collect(),
+        ts: d.ts,
+        computer: d.computer,
+        user: d.user,
+        kind: d.kind,
+        event_count: d.event_count,
+        summary: d.summary,
+        fp_hint: d.fp_hint,
+        triage: d.triage,
+        triage_note: d.triage_note,
+        event_ids: d.event_ids,
+    }
+}
+
+fn to_detection_query(q: &DetectionQueryDto, filter: &GlobalFilter) -> DetectionQuery {
+    let mut severities: Vec<Severity> = q
+        .severities
+        .iter()
+        .filter_map(|s| parse_severity(s))
+        .collect();
+    if severities.is_empty() {
+        severities = filter
+            .severities
+            .iter()
+            .filter_map(|s| parse_severity(s))
+            .collect();
+    }
+    let computers = if q.computers.is_empty() {
+        filter.computers.clone()
+    } else {
+        q.computers.clone()
+    };
+    let users = if q.users.is_empty() {
+        filter.users.clone()
+    } else {
+        q.users.clone()
+    };
+    let triage = if q.triage.is_empty() {
+        filter.triage.clone()
+    } else {
+        q.triage.clone()
+    };
+    let text = q
+        .text
+        .clone()
+        .or_else(|| filter.text.clone())
+        .filter(|t| !t.is_empty());
+    let sort_dir = match q.sort_dir.to_ascii_lowercase().as_str() {
+        "asc" => SortDir::Asc,
+        _ => SortDir::Desc,
+    };
+    DetectionQuery {
+        offset: q.offset,
+        limit: if q.limit == 0 { 200 } else { q.limit },
+        sort_col: if q.sort_col.is_empty() {
+            "severity".into()
+        } else {
+            q.sort_col.clone()
+        },
+        sort_dir,
+        severity_min: None,
+        severities,
+        rule_uid: q.rule_uid.clone(),
+        text,
+        time_from: q.time_from.or(filter.time_from),
+        time_to: q.time_to.or(filter.time_to),
+        computers,
+        users,
+        triage,
+        mitre_tactic: q
+            .mitre_tactic
+            .clone()
+            .or_else(|| filter.mitre_tactic.clone()),
+    }
+}
+
+#[tauri::command]
+pub fn dashboard_summary_cmd(
+    state: State<'_, AppState>,
+    _filter: Option<GlobalFilter>,
+) -> Result<DashboardSummaryDto, ApiError> {
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let s = dashboard_summary(&conn)?;
+        Ok(DashboardSummaryDto {
+            severity: SeverityCountsDto {
+                critical: s.severity.critical,
+                high: s.severity.high,
+                medium: s.severity.medium,
+                low: s.severity.low,
+                informational: s.severity.informational,
+            },
+            total_detections: s.total_detections,
+            top_rules: s
+                .top_rules
+                .into_iter()
+                .map(|n| NamedCountDto {
+                    name: n.name,
+                    count: n.count,
+                })
+                .collect(),
+            top_hosts: s
+                .top_hosts
+                .into_iter()
+                .map(|n| NamedCountDto {
+                    name: n.name,
+                    count: n.count,
+                })
+                .collect(),
+            top_users: s
+                .top_users
+                .into_iter()
+                .map(|n| NamedCountDto {
+                    name: n.name,
+                    count: n.count,
+                })
+                .collect(),
+            top_tactics: s
+                .top_tactics
+                .into_iter()
+                .map(|n| NamedCountDto {
+                    name: n.name,
+                    count: n.count,
+                })
+                .collect(),
+            files: s.files,
+            files_with_errors: s.files_with_errors,
+            events: s.events,
+            first_ts: s.first_ts,
+            last_ts: s.last_ts,
+            channels: s
+                .channels
+                .into_iter()
+                .map(|n| NamedCountDto {
+                    name: n.name,
+                    count: n.count,
+                })
+                .collect(),
+            coverage: s
+                .coverage
+                .into_iter()
+                .map(|c| CoverageWarningDto {
+                    code: c.code,
+                    message: c.message,
+                })
+                .collect(),
+            detections_over_time: s
+                .detections_over_time
+                .into_iter()
+                .map(|b| TimeBucketDto {
+                    ts: b.ts,
+                    count: b.count,
+                })
+                .collect(),
+        })
+    })
+}
+
+#[tauri::command]
+pub fn query_detections_cmd(
+    state: State<'_, AppState>,
+    q: DetectionQueryDto,
+    filter: Option<GlobalFilter>,
+) -> Result<DetectionPageDto, ApiError> {
+    let filter = filter.unwrap_or_default();
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let page = query_detections(&conn, &to_detection_query(&q, &filter))?;
+        Ok(DetectionPageDto {
+            rows: page.rows.into_iter().map(detection_row_dto).collect(),
+            total: page.total,
+            offset: page.offset,
+        })
+    })
+}
+
+#[tauri::command]
+pub fn get_detection_cmd(
+    state: State<'_, AppState>,
+    id: i64,
+) -> Result<DetectionDetailDto, ApiError> {
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let d = get_detection(&conn, id)?;
+        Ok(DetectionDetailDto {
+            detection: detection_row_dto(d.detection),
+            group_json: d.group_json,
+            linked_events: d
+                .linked_events
+                .into_iter()
+                .map(|e| LinkedEventRefDto {
+                    id: e.id,
+                    ts: e.ts,
+                    event_id: e.event_id,
+                    channel: e.channel,
+                    computer: e.computer,
+                    user_name: e.user_name,
+                })
+                .collect(),
+        })
+    })
+}
+
+#[tauri::command]
+pub fn get_event_cmd(state: State<'_, AppState>, id: i64) -> Result<EventDetailDto, ApiError> {
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let e = get_event(&conn, id)?;
+        Ok(EventDetailDto {
+            id: e.id,
+            file_id: e.file_id,
+            record_id: e.record_id,
+            ts: e.ts,
+            event_id: e.event_id,
+            channel: e.channel,
+            provider: e.provider,
+            computer: e.computer,
+            level: e.level,
+            user_name: e.user_name,
+            src_ip: e.src_ip,
+            logon_type: e.logon_type,
+            source_path: e.source_path,
+            description: e.description,
+            fields: e.fields,
+            raw_json: e.raw_json,
+            xml: e.xml,
+            decoded: e.decoded.map(|d| DecodedPayloadDto {
+                field: d.field,
+                encoding: d.encoding,
+                text: d.text,
+            }),
+            related_detection_ids: e.related_detection_ids,
+        })
+    })
+}
+
+#[tauri::command]
+pub fn set_triage_cmd(state: State<'_, AppState>, req: SetTriageRequest) -> Result<u64, ApiError> {
+    let triage = parse_triage(&req.state)?;
+    with_open_case(&state, |open| {
+        // Need a writable connection for triage updates.
+        let conn = lw_store::open_write_conn(&open.store.root)?;
+        let n = set_triage(&conn, &req.detection_ids, triage, req.note.as_deref())?;
+        Ok(n)
+    })
 }
 
 /// Export TS bindings via ts-rs when the `ts-rs` feature is enabled.

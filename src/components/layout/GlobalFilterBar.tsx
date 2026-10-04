@@ -51,6 +51,27 @@ export function GlobalFilterBar() {
         <option value="low">Low</option>
         <option value="informational">Info</option>
       </select>
+      <select
+        className="h-8 rounded-md border border-border bg-background/60 px-2 text-sm"
+        value={filter.triage[0] ?? ""}
+        onChange={(e) =>
+          setFilter({ triage: e.target.value ? [e.target.value] : [] })
+        }
+        aria-label="Triage filter"
+      >
+        <option value="">Triage</option>
+        <option value="new">New</option>
+        <option value="reviewed">Reviewed</option>
+        <option value="false_positive">False positive</option>
+        <option value="escalated">Escalated</option>
+      </select>
+      <input
+        className="h-8 w-28 rounded-md border border-border bg-background/60 px-2 text-sm outline-none ring-ring focus:ring-1"
+        placeholder="Tactic"
+        value={filter.mitre_tactic ?? ""}
+        onChange={(e) => setFilter({ mitre_tactic: e.target.value || null })}
+        aria-label="MITRE tactic filter"
+      />
       <Button variant="ghost" className="h-8 px-2 text-xs" onClick={clearFilter}>
         Clear
       </Button>

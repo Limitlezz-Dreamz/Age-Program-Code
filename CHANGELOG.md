@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0 — M4 Dashboard / Detections / Event detail (unreleased)
+
+### Added
+
+- Dashboard: severity cards, sparkline, tops, evidence, coverage warnings
+- Detections: virtualized paged table, sort/filter/group, triage, detail drawer
+- Event detail: fields / raw JSON / XML / detections / decoded tabs (XSS-safe text)
+- Store + Tauri IPC: `dashboard_summary`, `query_detections`, `get_detection`, `get_event`, `set_triage`
+
 ## 0.1.0 — M3 GUI shell (unreleased)
 
 ### Added
