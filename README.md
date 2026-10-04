@@ -8,7 +8,7 @@ Cross-platform EVTX threat-hunting desktop app (Chainsaw-style workflow with a G
 
 ## Status
 
-Milestone **M4** (Dashboard / Detections / Event detail) complete. See `docs/milestones/`.
+Milestone **M5** (Timeline / Explorer / Pivots) complete. See `docs/milestones/`.
 
 ## Develop
 

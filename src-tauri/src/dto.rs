@@ -391,3 +391,186 @@ pub struct SetTriageRequest {
     pub state: String,
     pub note: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct HistogramQueryDto {
+    pub time_from: Option<i64>,
+    pub time_to: Option<i64>,
+    pub computers: Vec<String>,
+    pub channels: Vec<String>,
+    pub series: String,
+    pub bucket_micros: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct HistogramBucketDto {
+    pub ts: i64,
+    pub series: String,
+    pub count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct TimelineListQueryDto {
+    pub offset: u64,
+    pub limit: u64,
+    pub time_from: Option<i64>,
+    pub time_to: Option<i64>,
+    pub computers: Vec<String>,
+    pub include_events: bool,
+    pub text: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct TimelineItemDto {
+    pub kind: String,
+    pub id: i64,
+    pub ts: i64,
+    pub computer: String,
+    pub label: String,
+    pub severity: Option<String>,
+    pub event_id: Option<u32>,
+    pub channel: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct TimelinePageDto {
+    pub rows: Vec<TimelineItemDto>,
+    pub total: u64,
+    pub offset: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct FieldFilterDto {
+    pub field: String,
+    pub op: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct EventQueryDto {
+    pub offset: u64,
+    pub limit: u64,
+    pub sort_col: String,
+    pub sort_dir: String,
+    pub time_from: Option<i64>,
+    pub time_to: Option<i64>,
+    pub event_ids: Vec<u32>,
+    pub computers: Vec<String>,
+    pub channels: Vec<String>,
+    pub users: Vec<String>,
+    pub src_ips: Vec<String>,
+    pub text: Option<String>,
+    pub field_filters: Vec<FieldFilterDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct EventRowDto {
+    pub id: i64,
+    pub file_id: i64,
+    pub record_id: u64,
+    pub ts: i64,
+    pub event_id: u32,
+    pub channel: String,
+    pub provider: String,
+    pub computer: String,
+    pub user_name: Option<String>,
+    pub src_ip: Option<String>,
+    pub logon_type: Option<i64>,
+    pub summary: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct EventPageDto {
+    pub rows: Vec<EventRowDto>,
+    pub total: u64,
+    pub offset: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct PivotQueryDto {
+    pub dimension: String,
+    pub offset: u64,
+    pub limit: u64,
+    pub time_from: Option<i64>,
+    pub time_to: Option<i64>,
+    pub text: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct PivotRowDto {
+    pub key: String,
+    pub event_count: u64,
+    pub detection_count: u64,
+    pub critical: u64,
+    pub high: u64,
+    pub medium: u64,
+    pub low: u64,
+    pub informational: u64,
+    pub first_ts: Option<i64>,
+    pub last_ts: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct PivotPageDto {
+    pub rows: Vec<PivotRowDto>,
+    pub total: u64,
+    pub offset: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct LogonSummaryRowDto {
+    pub user_name: String,
+    pub src_ip: String,
+    pub logon_type: i64,
+    pub logon_type_name: String,
+    pub computer: String,
+    pub success_count: u64,
+    pub fail_count: u64,
+    pub first_ts: Option<i64>,
+    pub last_ts: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct LogonPageDto {
+    pub rows: Vec<LogonSummaryRowDto>,
+    pub total: u64,
+    pub offset: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-rs", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-rs", ts(export))]
+pub struct SavedSearchDto {
+    pub id: i64,
+    pub name: String,
+    pub query_json: String,
+    pub created_at: i64,
+}

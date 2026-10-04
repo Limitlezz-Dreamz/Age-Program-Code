@@ -3,6 +3,14 @@ use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FieldFilter {
+    pub field: String,
+    /// equals | contains | starts | ends | regex | in | exists
+    pub op: String,
+    pub value: String,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EventQuery {
     pub offset: u64,
@@ -15,7 +23,9 @@ pub struct EventQuery {
     pub computers: Vec<String>,
     pub channels: Vec<String>,
     pub users: Vec<String>,
+    pub src_ips: Vec<String>,
     pub text: Option<String>,
+    pub field_filters: Vec<FieldFilter>,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
@@ -39,6 +49,8 @@ pub struct EventRow {
     pub user_name: Option<String>,
     pub src_ip: Option<String>,
     pub logon_type: Option<i64>,
+    /// Short preview from fields_json (CommandLine / Message / etc.).
+    pub summary: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,11 +134,34 @@ pub fn query_events(conn: &Connection, q: &EventQuery) -> Result<Page<EventRow>>
             params.push(u.clone().into());
         }
     }
+    if !q.src_ips.is_empty() {
+        let placeholders = q.src_ips.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        where_parts.push(format!("e.src_ip IN ({placeholders})"));
+        for ip in &q.src_ips {
+            params.push(ip.clone().into());
+        }
+    }
+    for ff in &q.field_filters {
+        apply_field_filter(ff, &mut where_parts, &mut params)?;
+    }
     if let Some(text) = &q.text {
         if !text.is_empty() {
-            where_parts
-                .push("e.id IN (SELECT rowid FROM events_fts WHERE events_fts MATCH ?)".into());
-            params.push(text.clone().into());
+            // Prefer FTS when available; fall back to fields_json LIKE.
+            let fts_ok: bool = conn
+                .query_row(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='events_fts' LIMIT 1",
+                    [],
+                    |_| Ok(true),
+                )
+                .unwrap_or(false);
+            if fts_ok {
+                where_parts
+                    .push("e.id IN (SELECT rowid FROM events_fts WHERE events_fts MATCH ?)".into());
+                params.push(text.clone().into());
+            } else {
+                where_parts.push("e.fields_json LIKE ?".into());
+                params.push(format!("%{text}%").into());
+            }
         }
     }
 
@@ -157,7 +192,7 @@ pub fn query_events(conn: &Connection, q: &EventQuery) -> Result<Page<EventRow>>
     let limit = q.limit.clamp(1, 1000);
     let sql = format!(
         "SELECT e.id, e.file_id, e.record_id, e.ts, e.event_id,
-                c.name, p.name, h.name, e.user_name, e.src_ip, e.logon_type
+                c.name, p.name, h.name, e.user_name, e.src_ip, e.logon_type, e.fields_json
          FROM events e
          JOIN dict_channel c ON c.id = e.channel_id
          JOIN dict_provider p ON p.id = e.provider_id
@@ -175,6 +210,7 @@ pub fn query_events(conn: &Connection, q: &EventQuery) -> Result<Page<EventRow>>
         .map_err(|e| Error::Sqlite(e.to_string()))?;
     let rows = stmt
         .query_map(params_from_iter(params2), |r| {
+            let fields_json: String = r.get(11)?;
             Ok(EventRow {
                 id: r.get(0)?,
                 file_id: r.get(1)?,
@@ -187,6 +223,7 @@ pub fn query_events(conn: &Connection, q: &EventQuery) -> Result<Page<EventRow>>
                 user_name: r.get(8)?,
                 src_ip: r.get(9)?,
                 logon_type: r.get(10)?,
+                summary: summarize_fields(&fields_json),
             })
         })
         .map_err(|e| Error::Sqlite(e.to_string()))?;
@@ -230,6 +267,126 @@ pub struct EventDetail {
     pub xml: Option<String>,
     pub decoded: Option<DecodedPayload>,
     pub related_detection_ids: Vec<i64>,
+}
+
+fn summarize_fields(fields_json: &str) -> Option<String> {
+    let map: Map<String, Value> = serde_json::from_str(fields_json).ok()?;
+    for key in [
+        "CommandLine",
+        "ScriptBlockText",
+        "Message",
+        "Image",
+        "TargetUserName",
+        "ProcessName",
+    ] {
+        if let Some(Value::String(s)) = map.get(key) {
+            if !s.is_empty() {
+                let mut t = s.clone();
+                if t.len() > 160 {
+                    t.truncate(160);
+                    t.push('…');
+                }
+                return Some(format!("{key}={t}"));
+            }
+        }
+    }
+    None
+}
+
+fn apply_field_filter(
+    ff: &FieldFilter,
+    where_parts: &mut Vec<String>,
+    params: &mut Vec<rusqlite::types::Value>,
+) -> Result<()> {
+    let field = ff.field.trim();
+    if field.is_empty() {
+        return Ok(());
+    }
+    let op = ff.op.to_ascii_lowercase();
+    // Map common columns to SQL; everything else → fields_json.
+    let col = match field.to_ascii_lowercase().as_str() {
+        "event_id" | "eventid" => Some("e.event_id"),
+        "computer" | "host" => Some("h.name"),
+        "channel" => Some("c.name"),
+        "provider" => Some("p.name"),
+        "user" | "user_name" => Some("e.user_name"),
+        "src_ip" | "ip" => Some("e.src_ip"),
+        "logon_type" => Some("e.logon_type"),
+        _ => None,
+    };
+
+    match (col, op.as_str()) {
+        (Some(c), "equals" | "eq" | "=") => {
+            where_parts.push(format!("{c} = ?"));
+            params.push(ff.value.clone().into());
+        }
+        (Some(c), "contains") => {
+            where_parts.push(format!("CAST({c} AS TEXT) LIKE ?"));
+            params.push(format!("%{}%", ff.value).into());
+        }
+        (Some(c), "starts" | "startswith") => {
+            where_parts.push(format!("CAST({c} AS TEXT) LIKE ?"));
+            params.push(format!("{}%", ff.value).into());
+        }
+        (Some(c), "ends" | "endswith") => {
+            where_parts.push(format!("CAST({c} AS TEXT) LIKE ?"));
+            params.push(format!("%{}", ff.value).into());
+        }
+        (Some(c), "exists") => {
+            where_parts.push(format!("{c} IS NOT NULL AND CAST({c} AS TEXT) != ''"));
+        }
+        (Some(c), "in") => {
+            let vals: Vec<_> = ff
+                .value
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+            if vals.is_empty() {
+                return Ok(());
+            }
+            let ph = vals.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            where_parts.push(format!("{c} IN ({ph})"));
+            for v in vals {
+                params.push(v.into());
+            }
+        }
+        (None, "exists") => {
+            where_parts.push("e.fields_json LIKE ?".into());
+            params.push(format!("%\"{field}\"%").into());
+        }
+        (None, "equals" | "eq" | "=") => {
+            // JSON substring match — MVP (no json1 dependency guarantee).
+            where_parts.push("e.fields_json LIKE ?".into());
+            params.push(format!("%\"{field}\":\"{}\"%", ff.value.replace('"', "")).into());
+        }
+        (None, "contains" | "starts" | "startswith" | "ends" | "endswith" | "regex") => {
+            // regex treated as contains for MVP safety (no ReDoS from SQLite REGEXP).
+            where_parts.push("e.fields_json LIKE ?".into());
+            params.push(format!("%{}%", ff.value).into());
+        }
+        (None, "in") => {
+            let vals: Vec<_> = ff
+                .value
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+            if vals.is_empty() {
+                return Ok(());
+            }
+            let mut ors = Vec::new();
+            for v in vals {
+                ors.push("e.fields_json LIKE ?".to_string());
+                params.push(format!("%{v}%").into());
+            }
+            where_parts.push(format!("({})", ors.join(" OR ")));
+        }
+        _ => {
+            return Err(Error::msg(format!("unsupported field filter op: {op}")));
+        }
+    }
+    Ok(())
 }
 
 pub fn get_event(conn: &Connection, id: i64) -> Result<EventDetail> {

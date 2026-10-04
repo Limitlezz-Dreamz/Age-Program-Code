@@ -5,8 +5,11 @@ import { ipc } from "@/ipc/client";
 import { CaseScreen } from "@/screens/CaseScreen";
 import { DashboardScreen } from "@/screens/DashboardScreen";
 import { DetectionsScreen } from "@/screens/DetectionsScreen";
+import { ExplorerScreen } from "@/screens/ExplorerScreen";
 import { PlaceholderScreen } from "@/screens/PlaceholderScreen";
+import { PivotsScreen } from "@/screens/PivotsScreen";
 import { SettingsScreen } from "@/screens/SettingsScreen";
+import { TimelineScreen } from "@/screens/TimelineScreen";
 import { useAppStore } from "@/stores/app-store";
 
 function ScreenRouter() {
@@ -21,26 +24,11 @@ function ScreenRouter() {
     case "detections":
       return <DetectionsScreen />;
     case "timeline":
-      return (
-        <PlaceholderScreen
-          title="Timeline"
-          blurb="Histogram + merged event/detection lane view arrives in M5."
-        />
-      );
+      return <TimelineScreen />;
     case "explorer":
-      return (
-        <PlaceholderScreen
-          title="Explorer"
-          blurb="Structured search across all events arrives in M5."
-        />
-      );
+      return <ExplorerScreen />;
     case "pivots":
-      return (
-        <PlaceholderScreen
-          title="Pivots"
-          blurb="Hosts, users, IPs, and logon summary arrive in M5."
-        />
-      );
+      return <PivotsScreen />;
     case "rules":
       return (
         <PlaceholderScreen

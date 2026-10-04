@@ -37,6 +37,14 @@ pub fn run() {
             commands::get_detection_cmd,
             commands::get_event_cmd,
             commands::set_triage_cmd,
+            commands::timeline_histogram_cmd,
+            commands::timeline_list_cmd,
+            commands::query_events_cmd,
+            commands::query_pivots_cmd,
+            commands::logon_summary_cmd,
+            commands::list_saved_searches_cmd,
+            commands::save_search_cmd,
+            commands::delete_saved_search_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -8,9 +8,11 @@ use lw_ingest::{discover, ingest_paths, IngestEvent, IngestOptions};
 use lw_normalize::{default_4688_aliases, load_field_aliases};
 use lw_rules::RuleProfile;
 use lw_store::{
-    create_case, dashboard_summary, get_detection, get_event, list_files, open_case,
-    query_detections, record_inputs, set_triage, stats_summary, write_run_stats, DetectionQuery,
-    SortDir, StoreWriteCmd,
+    create_case, dashboard_summary, delete_saved_search, get_detection, get_event, list_files,
+    list_saved_searches, open_case, query_detections, query_events, query_logon_summary,
+    query_pivots, record_inputs, save_search, set_triage, stats_summary, timeline_histogram,
+    timeline_list, write_run_stats, DetectionQuery, EventQuery, FieldFilter, HistogramQuery,
+    PivotQuery, SortDir, StoreWriteCmd, TimelineListQuery,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -807,6 +809,304 @@ pub fn set_triage_cmd(state: State<'_, AppState>, req: SetTriageRequest) -> Resu
         let conn = lw_store::open_write_conn(&open.store.root)?;
         let n = set_triage(&conn, &req.detection_ids, triage, req.note.as_deref())?;
         Ok(n)
+    })
+}
+
+fn merge_hist_filter(q: &HistogramQueryDto, filter: &GlobalFilter) -> HistogramQuery {
+    HistogramQuery {
+        time_from: q.time_from.or(filter.time_from),
+        time_to: q.time_to.or(filter.time_to),
+        computers: if q.computers.is_empty() {
+            filter.computers.clone()
+        } else {
+            q.computers.clone()
+        },
+        channels: if q.channels.is_empty() {
+            filter.channels.clone()
+        } else {
+            q.channels.clone()
+        },
+        series: if q.series.is_empty() {
+            "severity".into()
+        } else {
+            q.series.clone()
+        },
+        bucket_micros: q.bucket_micros,
+    }
+}
+
+fn merge_event_query(q: &EventQueryDto, filter: &GlobalFilter) -> EventQuery {
+    let sort_dir = match q.sort_dir.to_ascii_lowercase().as_str() {
+        "desc" => SortDir::Desc,
+        _ => SortDir::Asc,
+    };
+    EventQuery {
+        offset: q.offset,
+        limit: if q.limit == 0 { 200 } else { q.limit },
+        sort_col: if q.sort_col.is_empty() {
+            "ts".into()
+        } else {
+            q.sort_col.clone()
+        },
+        sort_dir,
+        time_from: q.time_from.or(filter.time_from),
+        time_to: q.time_to.or(filter.time_to),
+        event_ids: if q.event_ids.is_empty() {
+            filter.event_ids.clone()
+        } else {
+            q.event_ids.clone()
+        },
+        computers: if q.computers.is_empty() {
+            filter.computers.clone()
+        } else {
+            q.computers.clone()
+        },
+        channels: if q.channels.is_empty() {
+            filter.channels.clone()
+        } else {
+            q.channels.clone()
+        },
+        users: if q.users.is_empty() {
+            filter.users.clone()
+        } else {
+            q.users.clone()
+        },
+        src_ips: q.src_ips.clone(),
+        text: q
+            .text
+            .clone()
+            .or_else(|| filter.text.clone())
+            .filter(|t| !t.is_empty()),
+        field_filters: q
+            .field_filters
+            .iter()
+            .map(|f| FieldFilter {
+                field: f.field.clone(),
+                op: f.op.clone(),
+                value: f.value.clone(),
+            })
+            .collect(),
+    }
+}
+
+#[tauri::command]
+pub fn timeline_histogram_cmd(
+    state: State<'_, AppState>,
+    q: HistogramQueryDto,
+    filter: Option<GlobalFilter>,
+) -> Result<Vec<HistogramBucketDto>, ApiError> {
+    let filter = filter.unwrap_or_default();
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let buckets = timeline_histogram(&conn, &merge_hist_filter(&q, &filter))?;
+        Ok(buckets
+            .into_iter()
+            .map(|b| HistogramBucketDto {
+                ts: b.ts,
+                series: b.series,
+                count: b.count,
+            })
+            .collect())
+    })
+}
+
+#[tauri::command]
+pub fn timeline_list_cmd(
+    state: State<'_, AppState>,
+    q: TimelineListQueryDto,
+    filter: Option<GlobalFilter>,
+) -> Result<TimelinePageDto, ApiError> {
+    let filter = filter.unwrap_or_default();
+    let query = TimelineListQuery {
+        offset: q.offset,
+        limit: if q.limit == 0 { 200 } else { q.limit },
+        time_from: q.time_from.or(filter.time_from),
+        time_to: q.time_to.or(filter.time_to),
+        computers: if q.computers.is_empty() {
+            filter.computers.clone()
+        } else {
+            q.computers
+        },
+        include_events: q.include_events,
+        text: q.text.or(filter.text).filter(|t| !t.is_empty()),
+    };
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let page = timeline_list(&conn, &query)?;
+        Ok(TimelinePageDto {
+            rows: page
+                .rows
+                .into_iter()
+                .map(|r| TimelineItemDto {
+                    kind: r.kind,
+                    id: r.id,
+                    ts: r.ts,
+                    computer: r.computer,
+                    label: r.label,
+                    severity: r.severity,
+                    event_id: r.event_id,
+                    channel: r.channel,
+                })
+                .collect(),
+            total: page.total,
+            offset: page.offset,
+        })
+    })
+}
+
+#[tauri::command]
+pub fn query_events_cmd(
+    state: State<'_, AppState>,
+    q: EventQueryDto,
+    filter: Option<GlobalFilter>,
+) -> Result<EventPageDto, ApiError> {
+    let filter = filter.unwrap_or_default();
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let page = query_events(&conn, &merge_event_query(&q, &filter))?;
+        Ok(EventPageDto {
+            rows: page
+                .rows
+                .into_iter()
+                .map(|r| EventRowDto {
+                    id: r.id,
+                    file_id: r.file_id,
+                    record_id: r.record_id,
+                    ts: r.ts,
+                    event_id: r.event_id,
+                    channel: r.channel,
+                    provider: r.provider,
+                    computer: r.computer,
+                    user_name: r.user_name,
+                    src_ip: r.src_ip,
+                    logon_type: r.logon_type,
+                    summary: r.summary,
+                })
+                .collect(),
+            total: page.total,
+            offset: page.offset,
+        })
+    })
+}
+
+#[tauri::command]
+pub fn query_pivots_cmd(
+    state: State<'_, AppState>,
+    q: PivotQueryDto,
+    filter: Option<GlobalFilter>,
+) -> Result<PivotPageDto, ApiError> {
+    let filter = filter.unwrap_or_default();
+    let query = PivotQuery {
+        dimension: q.dimension,
+        offset: q.offset,
+        limit: if q.limit == 0 { 200 } else { q.limit },
+        time_from: q.time_from.or(filter.time_from),
+        time_to: q.time_to.or(filter.time_to),
+        text: q.text.or(filter.text).filter(|t| !t.is_empty()),
+    };
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let page = query_pivots(&conn, &query)?;
+        Ok(PivotPageDto {
+            rows: page
+                .rows
+                .into_iter()
+                .map(|r| PivotRowDto {
+                    key: r.key,
+                    event_count: r.event_count,
+                    detection_count: r.detection_count,
+                    critical: r.critical,
+                    high: r.high,
+                    medium: r.medium,
+                    low: r.low,
+                    informational: r.informational,
+                    first_ts: r.first_ts,
+                    last_ts: r.last_ts,
+                })
+                .collect(),
+            total: page.total,
+            offset: page.offset,
+        })
+    })
+}
+
+#[tauri::command]
+pub fn logon_summary_cmd(
+    state: State<'_, AppState>,
+    q: PivotQueryDto,
+    filter: Option<GlobalFilter>,
+) -> Result<LogonPageDto, ApiError> {
+    let filter = filter.unwrap_or_default();
+    let query = PivotQuery {
+        dimension: "logon".into(),
+        offset: q.offset,
+        limit: if q.limit == 0 { 200 } else { q.limit },
+        time_from: q.time_from.or(filter.time_from),
+        time_to: q.time_to.or(filter.time_to),
+        text: q.text.or(filter.text).filter(|t| !t.is_empty()),
+    };
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let page = query_logon_summary(&conn, &query)?;
+        Ok(LogonPageDto {
+            rows: page
+                .rows
+                .into_iter()
+                .map(|r| LogonSummaryRowDto {
+                    user_name: r.user_name,
+                    src_ip: r.src_ip,
+                    logon_type: r.logon_type,
+                    logon_type_name: r.logon_type_name,
+                    computer: r.computer,
+                    success_count: r.success_count,
+                    fail_count: r.fail_count,
+                    first_ts: r.first_ts,
+                    last_ts: r.last_ts,
+                })
+                .collect(),
+            total: page.total,
+            offset: page.offset,
+        })
+    })
+}
+
+#[tauri::command]
+pub fn list_saved_searches_cmd(
+    state: State<'_, AppState>,
+) -> Result<Vec<SavedSearchDto>, ApiError> {
+    with_open_case(&state, |open| {
+        let conn = open.store.open_read_only()?;
+        let rows = list_saved_searches(&conn)?;
+        Ok(rows
+            .into_iter()
+            .map(|s| SavedSearchDto {
+                id: s.id,
+                name: s.name,
+                query_json: s.query_json,
+                created_at: s.created_at,
+            })
+            .collect())
+    })
+}
+
+#[tauri::command]
+pub fn save_search_cmd(
+    state: State<'_, AppState>,
+    name: String,
+    query_json: String,
+) -> Result<i64, ApiError> {
+    with_open_case(&state, |open| {
+        let conn = lw_store::open_write_conn(&open.store.root)?;
+        Ok(save_search(&conn, &name, &query_json)?)
+    })
+}
+
+#[tauri::command]
+pub fn delete_saved_search_cmd(state: State<'_, AppState>, id: i64) -> Result<(), ApiError> {
+    with_open_case(&state, |open| {
+        let conn = lw_store::open_write_conn(&open.store.root)?;
+        delete_saved_search(&conn, id)?;
+        Ok(())
     })
 }
 

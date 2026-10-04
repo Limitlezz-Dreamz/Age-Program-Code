@@ -6,8 +6,11 @@ mod case;
 mod dashboard;
 mod detections;
 mod files;
+mod pivots;
 mod query;
 mod schema;
+mod searches;
+mod timeline;
 mod writer;
 
 pub use case::{create_case, open_case, record_inputs, write_run_stats, CaseStore};
@@ -20,9 +23,17 @@ pub use detections::{
     DetectionDetail, DetectionQuery, DetectionRow, LinkedEventRef,
 };
 pub use files::list_files;
+pub use pivots::{
+    logon_type_name, query_logon_summary, query_pivots, LogonSummaryRow, PivotQuery, PivotRow,
+};
 pub use query::{
     get_event, query_events, stats_summary, DecodedPayload, EventDetail, EventQuery, EventRow,
-    Page, SortDir, StatsSummary,
+    FieldFilter, Page, SortDir, StatsSummary,
+};
+pub use searches::{delete_saved_search, list_saved_searches, save_search, SavedSearch};
+pub use timeline::{
+    timeline_histogram, timeline_list, HistogramBucket, HistogramQuery, TimelineItem,
+    TimelineListQuery,
 };
 pub use writer::{spawn_writer, StoreWriteCmd, WriterHandle};
 

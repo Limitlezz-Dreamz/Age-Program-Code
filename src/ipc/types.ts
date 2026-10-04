@@ -260,6 +260,144 @@ export type SetTriageRequest = {
   note?: string | null;
 };
 
+export type HistogramQueryDto = {
+  time_from?: number | null;
+  time_to?: number | null;
+  computers: string[];
+  channels: string[];
+  series: string;
+  bucket_micros?: number | null;
+};
+
+export type HistogramBucketDto = {
+  ts: number;
+  series: string;
+  count: number;
+};
+
+export type TimelineListQueryDto = {
+  offset: number;
+  limit: number;
+  time_from?: number | null;
+  time_to?: number | null;
+  computers: string[];
+  include_events: boolean;
+  text?: string | null;
+};
+
+export type TimelineItemDto = {
+  kind: string;
+  id: number;
+  ts: number;
+  computer: string;
+  label: string;
+  severity: string | null;
+  event_id: number | null;
+  channel: string | null;
+};
+
+export type TimelinePageDto = {
+  rows: TimelineItemDto[];
+  total: number;
+  offset: number;
+};
+
+export type FieldFilterDto = {
+  field: string;
+  op: string;
+  value: string;
+};
+
+export type EventQueryDto = {
+  offset: number;
+  limit: number;
+  sort_col: string;
+  sort_dir: string;
+  time_from?: number | null;
+  time_to?: number | null;
+  event_ids: number[];
+  computers: string[];
+  channels: string[];
+  users: string[];
+  src_ips: string[];
+  text?: string | null;
+  field_filters: FieldFilterDto[];
+};
+
+export type EventRowDto = {
+  id: number;
+  file_id: number;
+  record_id: number;
+  ts: number;
+  event_id: number;
+  channel: string;
+  provider: string;
+  computer: string;
+  user_name: string | null;
+  src_ip: string | null;
+  logon_type: number | null;
+  summary: string | null;
+};
+
+export type EventPageDto = {
+  rows: EventRowDto[];
+  total: number;
+  offset: number;
+};
+
+export type PivotQueryDto = {
+  dimension: string;
+  offset: number;
+  limit: number;
+  time_from?: number | null;
+  time_to?: number | null;
+  text?: string | null;
+};
+
+export type PivotRowDto = {
+  key: string;
+  event_count: number;
+  detection_count: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  informational: number;
+  first_ts: number | null;
+  last_ts: number | null;
+};
+
+export type PivotPageDto = {
+  rows: PivotRowDto[];
+  total: number;
+  offset: number;
+};
+
+export type LogonSummaryRowDto = {
+  user_name: string;
+  src_ip: string;
+  logon_type: number;
+  logon_type_name: string;
+  computer: string;
+  success_count: number;
+  fail_count: number;
+  first_ts: number | null;
+  last_ts: number | null;
+};
+
+export type LogonPageDto = {
+  rows: LogonSummaryRowDto[];
+  total: number;
+  offset: number;
+};
+
+export type SavedSearchDto = {
+  id: number;
+  name: string;
+  query_json: string;
+  created_at: number;
+};
+
 export type NavId =
   | "case"
   | "dashboard"

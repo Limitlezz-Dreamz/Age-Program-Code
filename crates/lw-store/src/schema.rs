@@ -147,6 +147,13 @@ CREATE TABLE IF NOT EXISTS logon_summary(
   last_ts INTEGER,
   PRIMARY KEY (user_name, src_ip, logon_type, computer)
 ) WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS saved_searches(
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  query_json TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
 "#;
 
 pub const FINALIZE_INDEXES: &str = r#"

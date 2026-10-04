@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0 — M5 Timeline / Explorer / Pivots (unreleased)
+
+### Added
+
+- Timeline histogram with brush-to-filter, jump-to-time, virtualized lane list
+- Explorer: FTS + structured field filters, saved searches, virtualized event table
+- Pivots: hosts/users/IPs + A002 logon summary with type names
+- Store/IPC for histogram, timeline list, event query, pivots, logons, saved searches
+
 ## 0.1.0 — M4 Dashboard / Detections / Event detail (unreleased)
 
 ### Added

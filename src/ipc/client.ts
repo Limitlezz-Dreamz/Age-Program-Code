@@ -10,12 +10,22 @@ import type {
   DetectionQueryDto,
   DiscoveryResult,
   EventDetailDto,
+  EventPageDto,
+  EventQueryDto,
   GlobalFilter,
+  HistogramBucketDto,
+  HistogramQueryDto,
   IngestProgressMsg,
+  LogonPageDto,
+  PivotPageDto,
+  PivotQueryDto,
   RecentCase,
+  SavedSearchDto,
   SetTriageRequest,
   Settings,
   SourceFileDto,
+  TimelineListQueryDto,
+  TimelinePageDto,
 } from "./types";
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -63,4 +73,21 @@ export const ipc = {
   getDetection: (id: number) => call<DetectionDetailDto>("get_detection_cmd", { id }),
   getEvent: (id: number) => call<EventDetailDto>("get_event_cmd", { id }),
   setTriage: (req: SetTriageRequest) => call<number>("set_triage_cmd", { req }),
+  timelineHistogram: (q: HistogramQueryDto, filter?: GlobalFilter | null) =>
+    call<HistogramBucketDto[]>("timeline_histogram_cmd", {
+      q,
+      filter: filter ?? null,
+    }),
+  timelineList: (q: TimelineListQueryDto, filter?: GlobalFilter | null) =>
+    call<TimelinePageDto>("timeline_list_cmd", { q, filter: filter ?? null }),
+  queryEvents: (q: EventQueryDto, filter?: GlobalFilter | null) =>
+    call<EventPageDto>("query_events_cmd", { q, filter: filter ?? null }),
+  queryPivots: (q: PivotQueryDto, filter?: GlobalFilter | null) =>
+    call<PivotPageDto>("query_pivots_cmd", { q, filter: filter ?? null }),
+  logonSummary: (q: PivotQueryDto, filter?: GlobalFilter | null) =>
+    call<LogonPageDto>("logon_summary_cmd", { q, filter: filter ?? null }),
+  listSavedSearches: () => call<SavedSearchDto[]>("list_saved_searches_cmd"),
+  saveSearch: (name: string, queryJson: string) =>
+    call<number>("save_search_cmd", { name, queryJson }),
+  deleteSavedSearch: (id: number) => call<void>("delete_saved_search_cmd", { id }),
 };
