@@ -1,0 +1,15 @@
+title: Audit policy changed
+id: B027
+status: stable
+level: medium
+author: Logwarden built-in
+tags:
+  - attack.t1562.002
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    Channel: Security
+    EventID: 4719
+  condition: selection

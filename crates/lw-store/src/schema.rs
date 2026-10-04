@@ -135,6 +135,18 @@ CREATE TABLE IF NOT EXISTS gaps(
   to_ts INTEGER,
   reason TEXT
 );
+
+CREATE TABLE IF NOT EXISTS logon_summary(
+  user_name TEXT NOT NULL,
+  src_ip TEXT NOT NULL,
+  logon_type INTEGER NOT NULL,
+  computer TEXT NOT NULL,
+  success_count INTEGER NOT NULL DEFAULT 0,
+  fail_count INTEGER NOT NULL DEFAULT 0,
+  first_ts INTEGER,
+  last_ts INTEGER,
+  PRIMARY KEY (user_name, src_ip, logon_type, computer)
+) WITHOUT ROWID;
 "#;
 
 pub const FINALIZE_INDEXES: &str = r#"

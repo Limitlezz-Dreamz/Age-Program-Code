@@ -8,7 +8,7 @@ Cross-platform EVTX threat-hunting desktop app (Chainsaw-style workflow with a G
 
 ## Status
 
-Milestone **M1** (headless ingest / normalize / store) complete. See `docs/milestones/`.
+Milestone **M2** (headless rules / detection) complete. See `docs/milestones/`.
 
 ## Develop
 
@@ -16,9 +16,10 @@ Milestone **M1** (headless ingest / normalize / store) complete. See `docs/miles
 npm install
 just ci          # fmt, clippy, tests, deny, tsc, eslint, vitest
 just fixtures    # optional: fetch external EVTX sample sets
-cargo run -p lw-cli -- release 2>/dev/null || cargo build -p lw-cli --release
+cargo build -p lw-cli --release
 ./target/release/lw ingest path/to/logs --case /tmp/demo.lwcase --bench
-./target/release/lw stats --case /tmp/demo.lwcase
+./target/release/lw hunt --case /tmp/demo.lwcase --profile all
+./target/release/lw detections --case /tmp/demo.lwcase
 just dev         # tauri GUI shell (M3+)
 ```
 
@@ -33,4 +34,4 @@ just dev         # tauri GUI shell (M3+)
 
 - Build spec and research report (project planning docs)
 - `CHANGELOG.md`
-- `docs/milestones/M0.md`
+- `docs/milestones/M0.md`, `M1.md`, `M2.md`

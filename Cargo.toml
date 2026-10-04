@@ -49,6 +49,12 @@ evtx = { version = "0.12", default-features = false, features = ["multithreading
 num_cpus = "1.16"
 criterion = { version = "0.5", features = ["html_reports"] }
 
+rsigma-parser = "0.23"
+rsigma-eval = { version = "0.23", features = ["parallel"] }
+blake3 = "1.5"
+zip = "2"
+ureq = { version = "3", default-features = true, features = ["json"] }
+
 [profile.release]
 codegen-units = 1
 lto = true

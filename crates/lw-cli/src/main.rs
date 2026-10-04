@@ -4,11 +4,13 @@
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use lw_core::{format_rfc3339_micros, CancellationToken, APP_NAME};
+use lw_detect::{hunt, HuntOptions};
 use lw_ingest::{ingest_paths, IngestEvent, IngestOptions};
 use lw_normalize::{default_4688_aliases, load_field_aliases};
+use lw_rules::RuleProfile;
 use lw_store::{
-    create_case, open_case, query_events, record_inputs, stats_summary, write_run_stats,
-    EventQuery, SortDir, StoreWriteCmd,
+    create_case, open_case, open_write_conn, query_detections, query_events, record_inputs,
+    stats_summary, write_run_stats, DetectionQuery, EventQuery, SortDir, StoreWriteCmd,
 };
 use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
@@ -55,11 +57,40 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = StatsFormat::Text)]
         format: StatsFormat,
     },
+    /// Run detection (built-ins + optional Sigma pack) against an existing case
+    Hunt {
+        #[arg(long)]
+        case: PathBuf,
+        /// Local Sigma pack directory or zip (optional)
+        #[arg(long)]
+        rules: Option<PathBuf>,
+        /// Rule profile: default | all | high
+        #[arg(long, default_value = "default")]
+        profile: String,
+        /// Skip built-in rules
+        #[arg(long)]
+        no_builtins: bool,
+    },
+    /// List detections from a case
+    Detections {
+        #[arg(long)]
+        case: PathBuf,
+        #[arg(long, value_enum, default_value_t = DetFormat::Table)]
+        format: DetFormat,
+        #[arg(long, default_value_t = 100)]
+        limit: u64,
+    },
 }
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum StatsFormat {
     Text,
+    Json,
+}
+
+#[derive(Debug, Clone, clap::ValueEnum)]
+enum DetFormat {
+    Table,
     Json,
 }
 
@@ -88,6 +119,17 @@ fn main() -> Result<()> {
             paths, case, name, !no_hash, !no_fts, threads, bench, aliases,
         ),
         Commands::Stats { case, format } => cmd_stats(case, format),
+        Commands::Hunt {
+            case,
+            rules,
+            profile,
+            no_builtins,
+        } => cmd_hunt(case, rules, profile, !no_builtins),
+        Commands::Detections {
+            case,
+            format,
+            limit,
+        } => cmd_detections(case, format, limit),
     }
 }
 
@@ -260,4 +302,93 @@ fn cmd_stats(case: PathBuf, format: StatsFormat) -> Result<()> {
     }
     store.shutdown()?;
     Ok(())
+}
+
+fn cmd_hunt(case: PathBuf, rules: Option<PathBuf>, profile: String, builtins: bool) -> Result<()> {
+    let profile = RuleProfile::parse(&profile)
+        .with_context(|| format!("unknown profile '{profile}' (use default|all|high)"))?;
+    // Ensure case exists / writer not needed — hunt opens its own write conn.
+    let store = open_case(&case)?;
+    let root = store.root.clone();
+    store.shutdown()?;
+
+    println!("{APP_NAME} hunt → {}", root.display());
+    println!(
+        "profile={:?} builtins={builtins} rules={}",
+        profile,
+        rules
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "(none)".into())
+    );
+
+    let opts = HuntOptions {
+        case_dir: root,
+        profile,
+        builtins,
+        rules_path: rules,
+        ..Default::default()
+    };
+    let (report, _) = hunt(&opts, &CancellationToken::new())?;
+    println!(
+        "load: files={} rules_total={} loaded={} skipped_profile={} unmapped={} parse_errors={}",
+        report.load.total_files,
+        report.load.total_rules,
+        report.load.loaded,
+        report.load.skipped_profile,
+        report.load.unmapped,
+        report.load.parse_errors
+    );
+    println!(
+        "done: run_id={} events_scanned={} detections={} elapsed={}ms (no re-parse)",
+        report.run_id, report.events_scanned, report.detections, report.elapsed_ms
+    );
+    Ok(())
+}
+
+fn cmd_detections(case: PathBuf, format: DetFormat, limit: u64) -> Result<()> {
+    let store = open_case(&case)?;
+    let root = store.root.clone();
+    store.shutdown()?;
+    let conn = open_write_conn(&root)?;
+    let page = query_detections(
+        &conn,
+        &DetectionQuery {
+            offset: 0,
+            limit,
+            ..DetectionQuery::default()
+        },
+    )?;
+    match format {
+        DetFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(&page.rows)?);
+        }
+        DetFormat::Table => {
+            println!(
+                "{:<8} {:<10} {:<28} {:<40} summary",
+                "sev", "ts", "rule", "computer"
+            );
+            for d in &page.rows {
+                let ts = format_rfc3339_micros(d.ts).unwrap_or_else(|_| d.ts.to_string());
+                println!(
+                    "{:<8} {:<10} {:<28} {:<40} {}",
+                    d.severity.as_str(),
+                    &ts[..ts.len().min(19)],
+                    truncate(&d.rule_uid, 28),
+                    truncate(&d.computer, 40),
+                    truncate(&d.summary, 80)
+                );
+            }
+            println!("total={} shown={}", page.total, page.rows.len());
+        }
+    }
+    Ok(())
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}…", &s[..max.saturating_sub(1)])
+    }
 }

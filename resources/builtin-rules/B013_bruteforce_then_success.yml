@@ -1,0 +1,30 @@
+title: Successful logon
+id: B013-success
+status: stable
+level: informational
+author: Logwarden built-in
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    Channel: Security
+    EventID: 4624
+  condition: selection
+---
+title: Brute force followed by success
+id: B013
+status: stable
+level: critical
+author: Logwarden built-in
+tags:
+  - attack.t1110
+correlation:
+  type: temporal_ordered
+  rules:
+    - B010
+    - B013-success
+  group-by:
+    - TargetUserName
+    - IpAddress
+  timespan: 30m

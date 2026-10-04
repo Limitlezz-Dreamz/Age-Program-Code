@@ -1,0 +1,29 @@
+title: PsExec indicators
+id: B024
+status: stable
+level: high
+author: Logwarden built-in
+tags:
+  - attack.t1021.002
+  - attack.t1569.002
+logsource:
+  product: windows
+detection:
+  selection_svc:
+    Channel: System
+    EventID: 7045
+    ServiceName: PSEXESVC
+  selection_pipe:
+    Channel: Microsoft-Windows-Sysmon/Operational
+    EventID:
+      - 17
+      - 18
+    PipeName|startswith: '\PSEXESVC'
+  selection_share:
+    Channel: Security
+    EventID: 5145
+    ShareName|endswith: '\IPC$'
+    RelativeTargetName|startswith:
+      - PSEXESVC
+      - RemCom_
+  condition: 1 of selection_*

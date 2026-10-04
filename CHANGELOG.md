@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0 — M2 rules/detection (unreleased)
+
+### Added
+
+- `lw-rules`: Sigma pack import (dir/zip), SigmaHQ download, manifests/blake3, profiles, logsource mapping
+- `lw-detect`: `RsigmaEngine`, built-ins B001–B027, analyzers A001/A002, event-time correlations, hunt orchestration
+- `lw-store`: detection writes, ordered event iteration for re-detect
+- `lw hunt` / `lw detections` CLI commands
+- Conformance + golden (fixture) detection tests
+
 ## 0.1.0 — M1 ingest/normalize/store (unreleased)
 
 ### Added

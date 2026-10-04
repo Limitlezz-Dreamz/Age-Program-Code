@@ -13,5 +13,20 @@ sigma-rust = []
 
 [dependencies]
 lw-core = { workspace = true }
+lw-rules = { workspace = true }
+lw-store = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+rsigma-parser = { workspace = true }
+rsigma-eval = { workspace = true }
+rayon = { workspace = true }
+rusqlite = { workspace = true }
+time = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+lw-ingest = { workspace = true }

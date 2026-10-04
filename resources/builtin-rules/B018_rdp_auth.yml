@@ -1,0 +1,14 @@
+title: RDP authentication from source
+id: B018
+status: stable
+level: informational
+author: Logwarden built-in
+tags:
+  - attack.t1021.001
+logsource:
+  product: windows
+detection:
+  selection:
+    Channel: Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational
+    EventID: 1149
+  condition: selection

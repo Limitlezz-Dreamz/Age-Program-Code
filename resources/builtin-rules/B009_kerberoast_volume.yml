@@ -1,0 +1,17 @@
+title: Kerberoasting volume
+id: B009
+status: stable
+level: high
+author: Logwarden built-in
+tags:
+  - attack.t1558.003
+correlation:
+  type: value_count
+  rules:
+    - B008
+  group-by:
+    - TargetUserName
+  timespan: 10m
+  condition:
+    field: ServiceName
+    gte: 10

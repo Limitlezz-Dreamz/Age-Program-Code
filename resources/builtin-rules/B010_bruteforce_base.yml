@@ -1,0 +1,33 @@
+title: Failed logon
+id: B010-base
+status: stable
+level: informational
+author: Logwarden built-in
+tags:
+  - attack.t1110.001
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    Channel: Security
+    EventID: 4625
+  condition: selection
+---
+title: Brute force
+id: B010
+status: stable
+level: medium
+author: Logwarden built-in
+tags:
+  - attack.t1110.001
+correlation:
+  type: event_count
+  rules:
+    - B010-base
+  group-by:
+    - TargetUserName
+    - IpAddress
+  timespan: 5m
+  condition:
+    gte: 10
