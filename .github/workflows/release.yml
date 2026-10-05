@@ -62,6 +62,7 @@ jobs:
 
       # Secret comparisons in `if:` / `with:` break workflow validation — gate in bash instead.
       - name: Enable updater artifacts when signing key is configured
+        shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
