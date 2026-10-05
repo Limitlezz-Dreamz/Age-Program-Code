@@ -6,18 +6,29 @@ Read-only CLI that ingests a Linux `auth.log` or macOS `log show --style syslog`
 
 This is **triage, not ops**. No ban, no fail2ban hooks, no host mutation. Unknown lines are counted and skipped; the run does not crash.
 
-## Quickstart
+**It runs on a Mac.** It is a Python 3.11+ CLI (stdlib only). Same commands on Linux and macOS. You do not need a Linux VM to use the program.
+
+## Quickstart (Linux or macOS)
 
 ```bash
+# macOS: python3 is enough, or `brew install python` if you want 3.12+
+cd authtriage
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 
 authtriage --help
-# or: python -m authtriage --help
+# or: python3 -m authtriage --help
 
 authtriage testdata/sentinel_sample_auth.log -o out/
+authtriage testdata/macos_sshd_snippet.log -o out/
 pytest -q
+```
+
+On a Mac, open the HTML report with:
+
+```bash
+open out/report.html
 ```
 
 Writes `out/report.md`, `out/iocs.csv`, `out/report.html`, and `out/report.json`. `--format` is `md`, `csv`, `html`, `json`, `both` (md+csv), or `all` (default).
@@ -29,7 +40,7 @@ authtriage testdata/sentinel_sample_auth.log -o out/ --serve
 # http://127.0.0.1:8765/report.html  — Ctrl+C to stop
 ```
 
-`--serve` binds **127.0.0.1** only. It does not scan the network or change the host.
+`--serve` binds **127.0.0.1** only. It does not scan the network or change the host. On macOS you can skip `--serve` and use `open out/report.html`.
 
 ## journalctl / log show (lab only)
 
