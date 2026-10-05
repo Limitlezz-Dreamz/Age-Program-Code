@@ -1,54 +1,11 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Rust
-/target
-**/target
-Cargo.lock.bak
-
-# Tauri
-src-tauri/gen
-
-# Updater private key (never commit). Public key lives in tauri.conf.json.
-.tauri/
-*.key
-!*.key.pub
-
-# Fixtures (external, often GPL / unlicensed — fetch only)
-tests/fixtures/ext/
-
-# Case / app data
-*.lwcase/
-*.db
-*.db-wal
-*.db-shm
-
-# OS
-Thumbs.db
-
-# AuthTriage lab fixtures (public sample excerpts)
-!authtriage/testdata/*.log
+out/
 __pycache__/
+.venv/
+venv/
+*.egg-info/
 .pytest_cache/
+.coverage
+dist/
+build/
+*.pyc
+.DS_Store

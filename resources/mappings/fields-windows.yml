@@ -1,8 +1,0 @@
-# Field aliases for Windows EVTX (our own YAML).
-# Full Section 6.3 mappings land in M1/M2.
-
-- when: { Channel: Security, EventID: 4688 }
-  add:
-    Image: "{NewProcessName}"
-    ParentImage: "{ParentProcessName}"
-    User: "{SubjectDomainName}\\{SubjectUserName}"

@@ -1,7 +1,0 @@
-dist
-src-tauri
-node_modules
-target
-tests/fixtures/ext
-package-lock.json
-Cargo.lock
