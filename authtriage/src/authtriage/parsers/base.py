@@ -14,6 +14,7 @@ from typing import Iterable, Optional, Protocol
 EVENT_FAILED_PASSWORD = "failed_password"
 EVENT_INVALID_USER = "invalid_user"
 EVENT_ACCEPTED = "accepted"
+EVENT_SUDO = "sudo"
 EVENT_OTHER = "other"
 
 
@@ -28,6 +29,8 @@ class AuthEvent:
     raw_line: str
     parser_version: str = "authlog_v1"
     source: str | None = None
+    command: str | None = None
+    runas: str | None = None
 
 
 @dataclass

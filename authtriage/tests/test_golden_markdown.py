@@ -35,6 +35,11 @@ def test_golden_sentinel_markdown(tmp_path: Path):
     assert "Spray vs brute" in markdown
     assert "T1110" in markdown
     assert any(item.kind in {"spray", "mixed"} for item in result.spray_brute)
+    users = {item.username for item in result.sudo_after_fail_success}
+    assert "ec2-user" in users
+    assert "alice" in users
+    assert "deploy" not in users
+    assert result.total_sudo >= 3
     assert "fail_then_success" in csv_path.read_text(encoding="utf-8")
     html_path = tmp_path / "report.html"
     from authtriage.html import write_html
@@ -43,6 +48,8 @@ def test_golden_sentinel_markdown(tmp_path: Path):
     html = html_path.read_text(encoding="utf-8")
     assert "<svg" in html
     assert "185.220.101.45" in html
+    assert "T1548.003" in html
+    assert "/bin/bash" in html
     assert stats.unparsed > 0  # sudo / useradd lines
 
 

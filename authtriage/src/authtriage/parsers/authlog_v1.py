@@ -5,8 +5,9 @@ Recognizes common OpenSSH ``auth.log`` / syslog-style lines:
 * ``Failed password for (invalid user )?USER from IP``
 * ``Accepted password|publickey for USER from IP``
 * ``Invalid user USER from IP``
+* sudo: ``USER : TTY=... ; USER=runas ; COMMAND=...``
 
-Anything else (sudo, cron, PAM noise, truncated lines) is a soft-fail miss.
+Anything else (cron, PAM noise, truncated lines) is a soft-fail miss.
 Keep ``PARSER_VERSION`` stable so goldens stay pinned to v1 while v2 can be
 added later as a separate module.
 """
@@ -20,6 +21,7 @@ from authtriage.parsers.base import (
     EVENT_ACCEPTED,
     EVENT_FAILED_PASSWORD,
     EVENT_INVALID_USER,
+    EVENT_SUDO,
     AuthEvent,
 )
 
@@ -55,6 +57,9 @@ _ACCEPTED = re.compile(
 _INVALID = re.compile(
     rf"Invalid user (?P<user>\S+) from {_IP}(?:\s+port\s+\d+)?"
 )
+_SUDO = re.compile(
+    r"^\s*(?P<user>\S+)\s*:\s*.*?USER=(?P<runas>\S+)\s*;\s*COMMAND=(?P<cmd>.+?)\s*$"
+)
 
 
 class AuthlogV1Parser:
@@ -74,7 +79,7 @@ class AuthlogV1Parser:
             process = None
             msg = stripped
 
-        event_type, username, source_ip = _classify_sshd(msg)
+        event_type, username, source_ip, runas, command = _classify(msg, process)
         if event_type is None:
             return None
         return AuthEvent(
@@ -86,7 +91,22 @@ class AuthlogV1Parser:
             source_ip=source_ip,
             raw_line=line,
             parser_version=PARSER_VERSION,
+            runas=runas,
+            command=command,
         )
+
+
+def _classify(
+    msg: str, process: str | None
+) -> tuple[str | None, str | None, str | None, str | None, str | None]:
+    event_type, username, source_ip = _classify_sshd(msg)
+    if event_type is not None:
+        return event_type, username, source_ip, None, None
+    if process == "sudo" or _SUDO.match(msg):
+        m = _SUDO.match(msg)
+        if m:
+            return EVENT_SUDO, m.group("user"), None, m.group("runas"), m.group("cmd")
+    return None, None, None, None, None
 
 
 def _classify_sshd(msg: str) -> tuple[str | None, str | None, str | None]:

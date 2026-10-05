@@ -9,16 +9,18 @@ from pathlib import Path
 from authtriage import __version__
 from authtriage.html import serve_local, write_html
 from authtriage.ingest import resolve_sources
+from authtriage.jsonout import write_json
 from authtriage.ioc import write_csv
 from authtriage.parsers.authlog_v1 import PARSER_VERSION, AuthlogV1Parser
 from authtriage.parsers.base import AuthEvent, ParseStats, merge_stats, parse_lines
-from authtriage.report import LAB_BANNER, write_markdown
+from authtriage.report import LAB_BANNER, format_summary, write_markdown
 from authtriage.triage import triage
 
 DEFAULT_OUTDIR = Path("out")
 MD_FORMATS = {"md", "both", "all"}
 CSV_FORMATS = {"csv", "both", "all"}
 HTML_FORMATS = {"html", "all"}
+JSON_FORMATS = {"json", "all"}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -47,9 +49,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--format",
-        choices=("md", "csv", "html", "both", "all"),
+        choices=("md", "csv", "html", "json", "both", "all"),
         default="all",
-        help="Output format (default: all = md+csv+html; both = md+csv)",
+        help="Output format (default: all = md+csv+html+json; both = md+csv)",
     )
     parser.add_argument(
         "--recursive",
@@ -94,8 +96,8 @@ def main(argv: list[str] | None = None) -> int:
         f"unparsed={stats.unparsed} by_type={dict(stats.by_type)}",
         file=sys.stderr,
     )
-
     result = triage(events, stats)
+    print(format_summary(result, stats), file=sys.stderr)
     outdir: Path = args.outdir
     input_name = ", ".join(name for name, _ in sources)
     fmt = args.format
@@ -119,6 +121,16 @@ def main(argv: list[str] | None = None) -> int:
                 result,
                 stats,
                 outdir / "report.html",
+                input_name=input_name,
+                parser_version=PARSER_VERSION,
+            )
+        )
+    if fmt in JSON_FORMATS:
+        written.append(
+            write_json(
+                result,
+                stats,
+                outdir / "report.json",
                 input_name=input_name,
                 parser_version=PARSER_VERSION,
             )

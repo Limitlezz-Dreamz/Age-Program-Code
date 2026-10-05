@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "authtriage"
-version = "0.2.0"
+version = "0.3.0"
 description = "Read-only Linux auth.log triage CLI (lab / public data only)."
 readme = "README.md"
 license = { text = "MIT" }

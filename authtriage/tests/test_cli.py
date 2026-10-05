@@ -29,6 +29,7 @@ def test_run_writes_report(tmp_path: Path, capsys):
         "Apr 19 03:12:01 host sshd[1]: Invalid user admin from 192.0.2.1 port 1\n"
         "Apr 19 03:12:02 host sshd[1]: Failed password for root from 192.0.2.1 port 2 ssh2\n"
         "Apr 19 03:12:03 host sshd[1]: Accepted password for ubuntu from 192.0.2.1 port 3 ssh2\n"
+        "Apr 19 03:12:04 host sudo: ubuntu : TTY=pts/0 ; PWD=/tmp ; USER=root ; COMMAND=/bin/id\n"
         "not a real line\n",
         encoding="utf-8",
     )
@@ -38,16 +39,21 @@ def test_run_writes_report(tmp_path: Path, capsys):
     assert code == 0
     assert LAB_BANNER in err
     assert "unparsed=1" in err
+    assert "summary:" in err
     assert (out / "report.md").is_file()
     assert (out / "iocs.csv").is_file()
     assert (out / "report.html").is_file()
+    assert (out / "report.json").is_file()
     md = (out / "report.md").read_text(encoding="utf-8")
     assert "Top source" in md
     assert "192.0.2.1" in md
     assert "successful logon after prior failures" in md
+    assert "Sudo after fail" in md
+    assert "/bin/id" in md
     html = (out / "report.html").read_text(encoding="utf-8")
     assert "sparkline" in html
     assert "T1110" in html
+    assert "T1548.003" in html
 
 
 def test_stdin_dash(tmp_path: Path, capsys, monkeypatch):

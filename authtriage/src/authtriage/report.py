@@ -39,6 +39,7 @@ def write_markdown(
         f"| Failed password | {result.total_failed} |",
         f"| Invalid user | {result.total_invalid_user} |",
         f"| Accepted | {result.total_accepted} |",
+        f"| Sudo | {result.total_sudo} |",
         "",
         "## Top source IPs",
         "",
@@ -120,6 +121,32 @@ def write_markdown(
     else:
         lines.append("_No spray/brute heuristic hits (thresholds not met)._")
 
+    lines.extend(
+        [
+            "",
+            "## Sudo after fail → success",
+            "",
+            "Invoking user matches an accepted account that had prior failures "
+            "from the same IP (file order). Study the sequence; this is not a "
+            "compromise verdict.",
+            "",
+        ]
+    )
+    if result.sudo_after_fail_success:
+        lines.extend(
+            [
+                "| User | Source IP | Runas | Command |",
+                "| --- | --- | --- | --- |",
+            ]
+        )
+        for item in result.sudo_after_fail_success:
+            cmd = item.command.replace("|", "\\|")
+            lines.append(
+                f"| `{item.username}` | `{item.source_ip}` | `{item.runas}` | `{cmd}` |"
+            )
+    else:
+        lines.append("_No sudo-after-fail→success findings._")
+
     blurbs = learner_blurbs(result)
     lines.extend(
         [
@@ -159,3 +186,21 @@ def write_markdown(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text("\n".join(lines), encoding="utf-8")
     return out_path
+
+
+def format_summary(result: TriageResult, stats: ParseStats) -> str:
+    top = result.top_source_ips[0] if result.top_source_ips else None
+    top_bit = (
+        f" top_ip={top.ip} fail={top.failed_count} accepted={top.accepted_count}"
+        if top
+        else ""
+    )
+    kinds = ",".join(sorted({item.kind for item in result.spray_brute})) or "none"
+    return (
+        f"summary: parsed={stats.parsed} unparsed={stats.unparsed} "
+        f"fail_then_success={len(result.fail_then_success)} "
+        f"spray_brute={len(result.spray_brute)}({kinds}) "
+        f"sudo={result.total_sudo} "
+        f"sudo_after_fail_success={len(result.sudo_after_fail_success)}"
+        f"{top_bit}"
+    )

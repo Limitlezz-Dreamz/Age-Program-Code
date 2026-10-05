@@ -19,6 +19,9 @@ Heuristics (intentionally simple):
   Not a classifier and not a detector. Thresholds are documented constants.
 * **Timeline** — failed vs accepted counts bucketed by syslog hour / ISO hour
   for HTML sparklines.
+* **Sudo after fail→success** — a sudo event whose invoking username matches an
+  earlier fail→success accepted account (appearance order). Lab study signal
+  only; not "they are owned" and not a ban list.
 """
 
 from __future__ import annotations
@@ -30,6 +33,7 @@ from authtriage.parsers.base import (
     EVENT_ACCEPTED,
     EVENT_FAILED_PASSWORD,
     EVENT_INVALID_USER,
+    EVENT_SUDO,
     AuthEvent,
     ParseStats,
 )
@@ -81,6 +85,15 @@ class TimelineBucket:
     accepted_count: int
 
 
+@dataclass(frozen=True)
+class SudoAfterFailSuccess:
+    username: str
+    source_ip: str
+    runas: str
+    command: str
+    note: str = "sudo after a logon that followed prior failures from the same IP"
+
+
 @dataclass
 class TriageResult:
     top_source_ips: list[IpCounts]
@@ -89,9 +102,11 @@ class TriageResult:
     fail_then_success: list[FailThenSuccess]
     spray_brute: list[SprayBruteFinding]
     timeline: list[TimelineBucket]
+    sudo_after_fail_success: list[SudoAfterFailSuccess]
     total_failed: int
     total_accepted: int
     total_invalid_user: int
+    total_sudo: int
     unparsed: int
 
 
@@ -103,6 +118,8 @@ def triage(events: list[AuthEvent], stats: ParseStats) -> TriageResult:
     prior_fail_by_ip: dict[str, int] = defaultdict(int)
     saw_success: set[str] = set()
     findings: list[FailThenSuccess] = []
+    flagged_users: dict[str, str] = {}
+    sudo_after: list[SudoAfterFailSuccess] = []
     timeline_fail: Counter[str] = Counter()
     timeline_ok: Counter[str] = Counter()
     timeline_order: list[str] = []
@@ -137,8 +154,21 @@ def triage(events: list[AuthEvent], stats: ParseStats) -> TriageResult:
                         )
                     )
                     saw_success.add(ip)
+                    if event.username and event.username not in flagged_users:
+                        flagged_users[event.username] = ip
                 elif ip not in saw_success:
                     saw_success.add(ip)
+        elif event.event_type == EVENT_SUDO and event.username:
+            ip = flagged_users.get(event.username)
+            if ip and len(sudo_after) < TOP_N:
+                sudo_after.append(
+                    SudoAfterFailSuccess(
+                        username=event.username,
+                        source_ip=ip,
+                        runas=event.runas or "",
+                        command=event.command or "",
+                    )
+                )
 
     ips = set(failed_by_ip) | set(accepted_by_ip)
     all_ips = sorted(
@@ -176,9 +206,11 @@ def triage(events: list[AuthEvent], stats: ParseStats) -> TriageResult:
         fail_then_success=findings,
         spray_brute=spray_brute,
         timeline=timeline,
+        sudo_after_fail_success=sudo_after,
         total_failed=stats.by_type.get(EVENT_FAILED_PASSWORD, 0),
         total_accepted=stats.by_type.get(EVENT_ACCEPTED, 0),
         total_invalid_user=stats.by_type.get(EVENT_INVALID_USER, 0),
+        total_sudo=stats.by_type.get(EVENT_SUDO, 0),
         unparsed=stats.unparsed,
     )
 

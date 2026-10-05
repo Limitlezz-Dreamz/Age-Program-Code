@@ -20,7 +20,7 @@ authtriage testdata/sentinel_sample_auth.log -o out/
 pytest -q
 ```
 
-Writes `out/report.md`, `out/iocs.csv`, and `out/report.html`. `--format` is `md`, `csv`, `html`, `both` (md+csv), or `all` (default).
+Writes `out/report.md`, `out/iocs.csv`, `out/report.html`, and `out/report.json`. `--format` is `md`, `csv`, `html`, `json`, `both` (md+csv), or `all` (default).
 
 Open `out/report.html` in a browser, or serve it on localhost only:
 
@@ -60,7 +60,8 @@ Collects `*.log` and `*.txt` in that folder (and subfolders with `--recursive`).
    - spray: 5+ distinct failed/invalid usernames from one IP
    - brute: 5+ failures against one username from one IP
    - mixed: both
-4. **ATT&CK learner notes** — short original blurbs with links to T1110 / T1110.001 / T1110.003 / T1078. We do **not** copy ATT&CK page text.
+4. **Sudo after fail→success** — that accepted user later ran sudo (file order)
+5. **ATT&CK learner notes** — short original blurbs with links to T1110 / T1110.001 / T1110.003 / T1078 / T1548.003. We do **not** copy ATT&CK page text.
 
 These are study patterns on lab samples — not a remediation or ban list.
 
@@ -79,7 +80,7 @@ See `testdata/README.md` for curl one-liners. Sample logs remain under **their u
 
 ## Parser versioning + soft-fail
 
-`authlog_v1` extracts sshd failed / invalid / accepted lines. Everything else (sudo, PAM, cron, garbage) increments `unparsed` and is skipped. Exit code is **0** on unknown lines; there is no traceback.
+`authlog_v1` extracts sshd failed / invalid / accepted lines and sudo COMMAND lines. Everything else (PAM, cron, useradd, garbage) increments `unparsed` and is skipped. Exit code is **0** on unknown lines; there is no traceback.
 
 To extend: add `src/authtriage/parsers/authlog_v2.py` with a new `PARSER_VERSION`. Keep v1 and its goldens unchanged. Wire v2 behind an explicit flag later; do not silently replace v1.
 

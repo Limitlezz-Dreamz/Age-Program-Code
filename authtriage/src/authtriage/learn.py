@@ -34,6 +34,13 @@ _T1078 = (
     "Accepted after prior failures from the same IP can mean a guess finally "
     "hit a real account — or a tired human. The report flags the sequence only.",
 )
+_T1548_003 = (
+    "T1548.003",
+    "Sudo and Sudo Caching",
+    "https://attack.mitre.org/techniques/T1548/003/",
+    "A sudo line after fail→success is just the next event in the lab story. "
+    "We list the command; we do not tell you to lock the box.",
+)
 
 
 def learner_blurbs(result: TriageResult) -> list[tuple[str, str, str, str]]:
@@ -48,4 +55,6 @@ def learner_blurbs(result: TriageResult) -> list[tuple[str, str, str, str]]:
         rows.append(_T1110_003)
     if result.fail_then_success:
         rows.append(_T1078)
+    if result.sudo_after_fail_success or result.total_sudo:
+        rows.append(_T1548_003)
     return rows

@@ -59,6 +59,7 @@ def write_html(
         f"<tr><td>Failed password</td><td class='num'>{result.total_failed}</td></tr>",
         f"<tr><td>Invalid user</td><td class='num'>{result.total_invalid_user}</td></tr>",
         f"<tr><td>Accepted</td><td class='num'>{result.total_accepted}</td></tr>",
+        f"<tr><td>Sudo</td><td class='num'>{result.total_sudo}</td></tr>",
         "</table>",
         "<h2>Top source IPs</h2>",
         _ip_table(result),
@@ -70,6 +71,9 @@ def write_html(
         "<h2>Spray vs brute (heuristic)</h2>",
         "<p>Spray: many distinct usernames from one IP. Brute: many failures against one username from one IP. Not a detector.</p>",
         _spray_table(result),
+        "<h2>Sudo after fail → success</h2>",
+        "<p>Invoking user matches an accepted account that had prior failures from the same IP. Sequence only — not a verdict.</p>",
+        _sudo_table(result),
         "<h2>ATT&amp;CK learner notes</h2>",
         "<p>Original study blurbs with links. We do not copy ATT&amp;CK page text into this report.</p>",
         _blurb_html(blurbs),
@@ -211,6 +215,23 @@ def _spray_table(result: TriageResult) -> str:
             f"<td class='num'>{finding.distinct_users}</td>"
             f"<td class='num'>{finding.max_user_fails}</td>"
             f"<td>{html.escape(finding.note)}</td></tr>"
+        )
+    rows.append("</table>")
+    return "\n".join(rows)
+
+
+def _sudo_table(result: TriageResult) -> str:
+    if not result.sudo_after_fail_success:
+        return "<p><em>No sudo-after-fail→success findings.</em></p>"
+    rows = [
+        "<table><tr><th>User</th><th>Source IP</th><th>Runas</th><th>Command</th></tr>"
+    ]
+    for item in result.sudo_after_fail_success:
+        rows.append(
+            f"<tr><td><code>{html.escape(item.username)}</code></td>"
+            f"<td><code>{html.escape(item.source_ip)}</code></td>"
+            f"<td><code>{html.escape(item.runas)}</code></td>"
+            f"<td><code>{html.escape(item.command)}</code></td></tr>"
         )
     rows.append("</table>")
     return "\n".join(rows)
