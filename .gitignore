@@ -47,3 +47,8 @@ tests/fixtures/ext/
 
 # OS
 Thumbs.db
+
+# AuthTriage lab fixtures (public sample excerpts)
+!authtriage/testdata/*.log
+__pycache__/
+.pytest_cache/

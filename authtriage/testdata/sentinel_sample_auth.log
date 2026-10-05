@@ -1,0 +1,24 @@
+Apr 19 03:12:01 prod-web-01 sshd[9821]: Invalid user admin from 185.220.101.45 port 49234
+Apr 19 03:12:02 prod-web-01 sshd[9821]: Invalid user root from 185.220.101.45 port 49235
+Apr 19 03:12:03 prod-web-01 sshd[9821]: Invalid user ubuntu from 185.220.101.45 port 49236
+Apr 19 03:12:04 prod-web-01 sshd[9821]: Invalid user deploy from 185.220.101.45 port 49237
+Apr 19 03:12:04 prod-web-01 sshd[9821]: Failed password for invalid user pi from 185.220.101.45 port 49238 ssh2
+Apr 19 03:12:05 prod-web-01 sshd[9821]: Failed password for invalid user oracle from 185.220.101.45 port 49239 ssh2
+Apr 19 03:12:06 prod-web-01 sshd[9821]: Failed password for invalid user test from 185.220.101.45 port 49240 ssh2
+Apr 19 03:12:07 prod-web-01 sshd[9821]: Failed password for invalid user git from 185.220.101.45 port 49241 ssh2
+Apr 19 03:14:22 prod-web-01 sshd[9930]: Failed password for ec2-user from 185.220.101.45 port 49300 ssh2
+Apr 19 03:14:23 prod-web-01 sshd[9930]: Failed password for ec2-user from 185.220.101.45 port 49301 ssh2
+Apr 19 03:14:24 prod-web-01 sshd[9930]: Failed password for ec2-user from 185.220.101.45 port 49302 ssh2
+Apr 19 03:14:24 prod-web-01 sshd[9930]: Failed password for ec2-user from 185.220.101.45 port 49303 ssh2
+Apr 19 03:14:25 prod-web-01 sshd[9930]: Failed password for ec2-user from 185.220.101.45 port 49304 ssh2
+Apr 19 03:14:25 prod-web-01 sshd[9930]: Failed password for ec2-user from 185.220.101.45 port 49305 ssh2
+Apr 19 03:14:26 prod-web-01 sshd[9930]: Accepted password for ec2-user from 185.220.101.45 port 49306 ssh2
+Apr 19 03:15:10 prod-web-01 sudo: ec2-user : TTY=pts/0 ; PWD=/home/ec2-user ; USER=root ; COMMAND=/bin/bash
+Apr 19 03:17:44 prod-web-01 useradd[10201]: new user: name=svc_backup, UID=1002, GID=1002, home=/home/svc_backup, shell=/bin/bash
+Apr 19 07:05:11 prod-web-01 sshd[11500]: Failed password for alice from 10.0.1.20 port 61001 ssh2
+Apr 19 07:05:49 prod-web-01 sshd[11501]: Failed password for alice from 10.0.1.20 port 61002 ssh2
+Apr 19 07:06:02 prod-web-01 sshd[11502]: Accepted publickey for alice from 10.0.1.20 port 61003 ssh2
+Apr 19 07:06:15 prod-web-01 sudo: alice : TTY=pts/1 ; PWD=/home/alice ; USER=root ; COMMAND=/usr/bin/apt update
+Apr 19 07:09:00 prod-web-01 sudo: alice : TTY=pts/1 ; PWD=/home/alice ; USER=root ; COMMAND=/usr/bin/systemctl restart nginx
+Apr 19 09:30:00 prod-web-01 sshd[12100]: Accepted publickey for deploy from 10.0.0.5 port 22 ssh2
+Apr 19 09:30:45 prod-web-01 sudo: deploy : TTY=pts/2 ; PWD=/var/www ; USER=root ; COMMAND=/usr/bin/rsync -avz /tmp/release/ /var/www/html/
