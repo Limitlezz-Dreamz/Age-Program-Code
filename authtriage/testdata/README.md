@@ -47,4 +47,14 @@ authtriage testdata/elastic_auth.log -o out/
 
 ## Generate your own (still lab-only)
 
-Disposable Ubuntu VM → scripted fail/success → `journalctl -u ssh -o short-iso > ssh.journal.txt`. Do not use a work host.
+Disposable Ubuntu VM — **not a work host**:
+
+```bash
+sudo journalctl -u ssh -u sshd -o short-iso --no-pager | authtriage - -o out/
+# or save first:
+journalctl -u ssh -o short-iso --no-pager > testdata/ssh.journal.txt
+authtriage testdata/ssh.journal.txt -o out/
+```
+
+AuthTriage never invokes `sudo` or `journalctl` itself. You need sudo only if your lab user cannot read the journal.
+

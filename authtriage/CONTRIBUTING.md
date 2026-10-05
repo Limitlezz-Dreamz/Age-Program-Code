@@ -9,6 +9,10 @@
 
 Unknown lines must still soft-fail: increment `unparsed`, never raise, exit 0.
 
+## Heuristics
+
+Spray/brute thresholds live in `triage.py` (`SPRAY_MIN_USERS`, `BRUTE_MIN_FAILS`). Change them in one place and document the new numbers in the README. Do not turn them into a “detector” or a ban list.
+
 ## Rules
 
 - Lab / public sample logs only. No employer or production logs in `testdata/` or issues.

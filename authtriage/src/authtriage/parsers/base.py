@@ -27,6 +27,7 @@ class AuthEvent:
     source_ip: str | None
     raw_line: str
     parser_version: str = "authlog_v1"
+    source: str | None = None
 
 
 @dataclass
@@ -71,3 +72,14 @@ def parse_lines(
         stats.bump(event.event_type)
         events.append(event)
     return events, stats
+
+
+def merge_stats(parts: Iterable[ParseStats]) -> ParseStats:
+    out = ParseStats()
+    for stats in parts:
+        out.total_lines += stats.total_lines
+        out.parsed += stats.parsed
+        out.unparsed += stats.unparsed
+        for key, value in stats.by_type.items():
+            out.by_type[key] = out.by_type.get(key, 0) + value
+    return out

@@ -5,8 +5,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+from authtriage.learn import learner_blurbs
 from authtriage.parsers.base import ParseStats
-from authtriage.triage import TriageResult
+from authtriage.triage import BRUTE_MIN_FAILS, SPRAY_MIN_USERS, TriageResult
 
 LAB_BANNER = "LAB / PUBLIC DATA ONLY — never use employer or production logs"
 
@@ -91,6 +92,50 @@ def write_markdown(
             )
     else:
         lines.append("_No fail→success findings in this file._")
+
+    lines.extend(
+        [
+            "",
+            "## Spray vs brute (heuristic)",
+            "",
+            f"Spray: **{SPRAY_MIN_USERS}+** distinct failed/invalid usernames "
+            f"from one IP. Brute: **{BRUTE_MIN_FAILS}+** failures against one "
+            "username from one IP. Whole-file appearance order — not a detector.",
+            "",
+        ]
+    )
+    if result.spray_brute:
+        lines.extend(
+            [
+                "| IP | Kind | Distinct users | Max per user | Note |",
+                "| --- | --- | ---: | ---: | --- |",
+            ]
+        )
+        for finding in result.spray_brute:
+            lines.append(
+                f"| `{finding.source_ip}` | {finding.kind} | "
+                f"{finding.distinct_users} | {finding.max_user_fails} | "
+                f"{finding.note} |"
+            )
+    else:
+        lines.append("_No spray/brute heuristic hits (thresholds not met)._")
+
+    blurbs = learner_blurbs(result)
+    lines.extend(
+        [
+            "",
+            "## ATT&CK learner notes",
+            "",
+            "Original study blurbs with links. We do **not** copy ATT&CK page "
+            "text into this report.",
+            "",
+        ]
+    )
+    if blurbs:
+        for tech_id, name, url, blurb in blurbs:
+            lines.append(f"- [{tech_id} {name}]({url}) — {blurb}")
+    else:
+        lines.append("_No ATT&CK notes for this file (no matching patterns)._")
 
     lines.extend(
         [

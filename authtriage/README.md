@@ -1,10 +1,10 @@
 # AuthTriage for Linux
 
-Read-only CLI that ingests a Linux `auth.log` (or syslog-style / `journalctl` text export) and prints a **markdown one-pager**: top source IPs, targeted/invalid users, fail→success from the same IP, plus an IOC IP CSV.
+Read-only CLI that ingests a Linux `auth.log` (or syslog-style / `journalctl` text export) and writes a **markdown one-pager**, an **IOC IP CSV**, and a **self-contained HTML report** (SVG sparkline of fails vs successes).
 
 > **LAB / PUBLIC DATA ONLY — never use employer or production logs.**
 
-This is **triage, not ops**. No ban, no fail2ban hooks, no host mutation. Unknown lines are counted and skipped (`unparsed_lines`); the run does not crash.
+This is **triage, not ops**. No ban, no fail2ban hooks, no host mutation. Unknown lines are counted and skipped; the run does not crash.
 
 ## Quickstart
 
@@ -20,11 +20,49 @@ authtriage testdata/sentinel_sample_auth.log -o out/
 pytest -q
 ```
 
-Writes `out/report.md` and `out/iocs.csv`. Default `--format` is `both` (`md`, `csv`, or `both`).
+Writes `out/report.md`, `out/iocs.csv`, and `out/report.html`. `--format` is `md`, `csv`, `html`, `both` (md+csv), or `all` (default).
+
+Open `out/report.html` in a browser, or serve it on localhost only:
+
+```bash
+authtriage testdata/sentinel_sample_auth.log -o out/ --serve
+# http://127.0.0.1:8765/report.html  — Ctrl+C to stop
+```
+
+`--serve` binds **127.0.0.1** only. It does not scan the network or change the host.
+
+## journalctl pipe (lab VM only)
+
+AuthTriage never runs `sudo` and never talks to the journal itself. You export text, then pipe it. **Not a work host.**
+
+```bash
+# short-iso matches authlog_v1. sudo only if your user cannot read the journal
+# (not in systemd-journal / adm). Skip sudo when `journalctl --user` is enough.
+sudo journalctl -u ssh -u sshd -o short-iso --no-pager | authtriage - -o out/
+```
+
+If `ssh` / `sshd` unit names differ on the distro, list units first (`systemctl list-units '*ssh*'`). Still lab-only.
+
+## Multi-file batch
+
+```bash
+authtriage testdata/ -o out/
+authtriage /path/to/lab-logs --recursive -o out/
+```
+
+Collects `*.log` and `*.txt` in that folder (and subfolders with `--recursive`).
 
 ## How to read a report
 
-Look at **top source IPs** and **targeted/invalid usernames** first, then the **fail→success** section (same IP had failures/invalids *before* an accepted logon, in file order). These are study patterns on lab samples — not a remediation or ban list.
+1. **Top source IPs** and **targeted/invalid usernames**
+2. **Fail→success** — same IP had failures/invalids *before* an accepted logon (file order)
+3. **Spray vs brute** (heuristic, not a detector):
+   - spray: 5+ distinct failed/invalid usernames from one IP
+   - brute: 5+ failures against one username from one IP
+   - mixed: both
+4. **ATT&CK learner notes** — short original blurbs with links to T1110 / T1110.001 / T1110.003 / T1078. We do **not** copy ATT&CK page text.
+
+These are study patterns on lab samples — not a remediation or ban list.
 
 ## Lab sample logs (public only)
 
@@ -50,8 +88,7 @@ To extend: add `src/authtriage/parsers/authlog_v2.py` with a new `PARSER_VERSION
 - Auto-block, fail2ban, iptables, or any host mutation
 - SIEM pipelines
 - Work / employer / production logs
-- Live `journalctl` pipe (nice-to-have; stdin later)
-- HTML sparklines, ATT&CK blurbs, spray-vs-brute classifier, multi-file batch
+- AuthTriage calling `journalctl` or `sudo` for you
 
 ## Study, don’t clone
 

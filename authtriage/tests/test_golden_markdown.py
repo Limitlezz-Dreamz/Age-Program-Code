@@ -32,7 +32,17 @@ def test_golden_sentinel_markdown(tmp_path: Path):
     assert len(result.top_source_ips) >= 1
     assert len(result.fail_then_success) >= 1
     assert "185.220.101.45" in markdown
+    assert "Spray vs brute" in markdown
+    assert "T1110" in markdown
+    assert any(item.kind in {"spray", "mixed"} for item in result.spray_brute)
     assert "fail_then_success" in csv_path.read_text(encoding="utf-8")
+    html_path = tmp_path / "report.html"
+    from authtriage.html import write_html
+
+    write_html(result, stats, html_path, SENTINEL.name, PARSER_VERSION)
+    html = html_path.read_text(encoding="utf-8")
+    assert "<svg" in html
+    assert "185.220.101.45" in html
     assert stats.unparsed > 0  # sudo / useradd lines
 
 

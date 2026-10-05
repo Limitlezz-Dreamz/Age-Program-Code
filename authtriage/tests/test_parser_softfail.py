@@ -24,3 +24,16 @@ def test_softfail_counts_garbage_and_does_not_raise():
     assert "invalid_user" in types
     assert "failed_password" in types
     assert "accepted" in types
+
+
+def test_journalctl_short_iso_line():
+    line = (
+        "2024-04-19T03:12:01+00:00 lab-vm sshd[12]: "
+        "Failed password for alice from 192.0.2.77 port 22 ssh2"
+    )
+    events, stats = parse_lines([line], AuthlogV1Parser())
+    assert stats.parsed == 1
+    assert events[0].event_type == "failed_password"
+    assert events[0].username == "alice"
+    assert events[0].source_ip == "192.0.2.77"
+    assert events[0].timestamp and events[0].timestamp.startswith("2024-04-19T03:12:01")
