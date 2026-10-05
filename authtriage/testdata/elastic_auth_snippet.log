@@ -1,0 +1,31 @@
+Mar 27 13:06:56 ip-10-77-20-248 sshd[1291]: Server listening on 0.0.0.0 port 22.
+Mar 27 13:06:56 ip-10-77-20-248 sshd[1291]: Server listening on :: port 22.
+Mar 27 13:06:56 ip-10-77-20-248 systemd-logind[1118]: Watching system buttons on /dev/input/event0 (Power Button)
+Mar 27 13:06:56 ip-10-77-20-248 systemd-logind[1118]: Watching system buttons on /dev/input/event1 (Sleep Button)
+Mar 27 13:06:56 ip-10-77-20-248 systemd-logind[1118]: New seat seat0.
+Mar 27 13:08:09 ip-10-77-20-248 sshd[1361]: Accepted publickey for ubuntu from 85.245.107.41 port 54259 ssh2: RSA SHA256:Kl8kPGZrTiz7g4FO1hyqHdsSBBb5Fge6NWOobN03XJg
+Mar 27 13:08:09 ip-10-77-20-248 sshd[1361]: pam_unix(sshd:session): session opened for user ubuntu by (uid=0)
+Mar 27 13:08:09 ip-10-77-20-248 systemd: pam_unix(systemd-user:session): session opened for user ubuntu by (uid=0)
+Mar 27 13:44:20 ip-10-77-20-248 sshd[2818]: Accepted publickey for ubuntu from 85.245.107.41 port 54866 ssh2: RSA SHA256:Kl8kPGZrTiz7g4FO1hyqHdsSBBb5Fge6NWOobN03XJg
+Mar 27 17:08:34 ip-10-77-20-248 sshd[14514]: Invalid user test from 85.245.107.41
+Mar 27 17:08:36 ip-10-77-20-248 sshd[14516]: Accepted publickey for ubuntu from 85.245.107.41 port 58981 ssh2: RSA SHA256:Kl8kPGZrTiz7g4FO1hyqHdsSBBb5Fge6NWOobN03XJg
+Mar 27 14:54:57 ip-10-77-20-248 sshd[2967]: Invalid user support from 95.152.57.58
+Mar 27 18:22:24 ip-10-77-20-248 sshd[14922]: Invalid user admin from 201.177.23.130
+Mar 27 18:27:20 ip-10-77-20-248 sshd[14928]: Invalid user support from 190.178.62.6
+Mar 27 19:17:03 ip-10-77-20-248 sshd[14957]: Invalid user admin from 201.43.243.37
+Mar 27 22:02:41 ip-10-77-20-248 sshd[21293]: Invalid user ftpuser from 112.135.124.229
+Mar 27 22:43:44 ip-10-77-20-248 sshd[21309]: Invalid user admin from 62.73.115.98
+Mar 27 23:47:15 ip-10-77-20-248 sshd[21347]: Invalid user default from 2.60.103.231
+Mar 28 04:29:25 ip-10-77-20-248 sshd[21516]: Invalid user admin from 31.162.4.186
+Mar 28 05:20:01 ip-10-77-20-248 sshd[21567]: Invalid user admin from 118.180.18.102
+Mar 28 06:07:01 ip-10-77-20-248 sshd[21599]: Invalid user test from 5.144.9.33
+Mar 28 06:29:51 ip-10-77-20-248 sshd[21731]: Invalid user 0 from 91.197.232.109
+Mar 28 06:29:51 ip-10-77-20-248 sshd[21759]: Invalid user 0000 from 91.197.232.109
+Mar 28 06:29:52 ip-10-77-20-248 sshd[21835]: Invalid user 010101 from 91.197.232.109
+Mar 28 06:29:52 ip-10-77-20-248 sshd[21837]: Invalid user 1111 from 91.197.232.109
+Mar 28 06:29:55 ip-10-77-20-248 sshd[21926]: Invalid user 1234 from 91.197.232.109
+Mar 28 06:29:56 ip-10-77-20-248 sshd[21928]: Invalid user admin from 91.197.232.109
+Mar 28 06:29:57 ip-10-77-20-248 sshd[21930]: Invalid user admin from 91.197.232.109
+Mar 28 06:29:58 ip-10-77-20-248 sshd[21932]: Invalid user admin from 91.197.232.109
+Mar 28 06:30:01 ip-10-77-20-248 sshd[21934]: Invalid user admin from 91.197.232.109
+Mar 29 10:42:45 ip-10-77-20-248 sshd[1193]: Failed password for elastic_user_7 from 127.0.0.1 port 52942 ssh2

@@ -1,0 +1,65 @@
+"""Golden markdown on the committed Sentinel lab sample."""
+
+from pathlib import Path
+
+import pytest
+
+from authtriage.ioc import write_csv
+from authtriage.parsers.authlog_v1 import PARSER_VERSION, AuthlogV1Parser
+from authtriage.parsers.base import parse_lines
+from authtriage.report import write_markdown
+from authtriage.triage import triage
+
+ROOT = Path(__file__).resolve().parents[1]
+SENTINEL = ROOT / "testdata" / "sentinel_sample_auth.log"
+ELASTIC_SNIPPET = ROOT / "testdata" / "elastic_auth_snippet.log"
+
+
+def test_golden_sentinel_markdown(tmp_path: Path):
+    if not SENTINEL.is_file():
+        pytest.skip("missing testdata/sentinel_sample_auth.log")
+    events, stats = parse_lines(
+        SENTINEL.read_text(encoding="utf-8").splitlines(),
+        AuthlogV1Parser(),
+    )
+    result = triage(events, stats)
+    md_path = write_markdown(
+        result, stats, tmp_path / "report.md", SENTINEL.name, PARSER_VERSION
+    )
+    csv_path = write_csv(result, tmp_path / "iocs.csv")
+    markdown = md_path.read_text(encoding="utf-8")
+    assert "Top source" in markdown
+    assert len(result.top_source_ips) >= 1
+    assert len(result.fail_then_success) >= 1
+    assert "185.220.101.45" in markdown
+    assert "Spray vs brute" in markdown
+    assert "T1110" in markdown
+    assert any(item.kind in {"spray", "mixed"} for item in result.spray_brute)
+    users = {item.username for item in result.sudo_after_fail_success}
+    assert "ec2-user" in users
+    assert "alice" in users
+    assert "deploy" not in users
+    assert result.total_sudo >= 3
+    assert "fail_then_success" in csv_path.read_text(encoding="utf-8")
+    html_path = tmp_path / "report.html"
+    from authtriage.html import write_html
+
+    write_html(result, stats, html_path, SENTINEL.name, PARSER_VERSION)
+    html = html_path.read_text(encoding="utf-8")
+    assert "<svg" in html
+    assert "185.220.101.45" in html
+    assert "T1548.003" in html
+    assert "/bin/bash" in html
+    assert stats.unparsed > 0  # sudo / useradd lines
+
+
+def test_golden_elastic_snippet_if_present():
+    if not ELASTIC_SNIPPET.is_file():
+        pytest.skip("missing testdata/elastic_auth_snippet.log")
+    events, stats = parse_lines(
+        ELASTIC_SNIPPET.read_text(encoding="utf-8").splitlines(),
+        AuthlogV1Parser(),
+    )
+    result = triage(events, stats)
+    assert len(result.top_source_ips) >= 1
+    assert stats.parsed >= 1
