@@ -27,12 +27,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="authtriage",
         description=(
-            "Read-only Linux auth.log / syslog-style triage. "
+            "Read-only Linux/macOS auth.log / syslog-style triage. "
             "Lab and public sample logs only."
         ),
         epilog=(
-            "journalctl (lab VM only, never a work host): "
-            "sudo journalctl -u ssh -u sshd -o short-iso --no-pager | authtriage - -o out/"
+            "Linux lab VM: sudo journalctl -u ssh -u sshd -o short-iso --no-pager | authtriage - -o out/\n"
+            "macOS lab: log show --style syslog --predicate "
+            '\'process == "sshd" OR process == "sshd-session" OR process == "sudo"\' '
+            "--last 24h | authtriage - -o out/\n"
+            "Never a work/employer host. AuthTriage does not run sudo or log show itself."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

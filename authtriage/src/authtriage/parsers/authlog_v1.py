@@ -1,15 +1,15 @@
 """Versioned sshd syslog parser (authlog_v1).
 
-Recognizes common OpenSSH ``auth.log`` / syslog-style lines:
+Recognizes common OpenSSH lines from Linux ``auth.log`` / ``journalctl``
+and macOS ``log show --style syslog`` (plus compact timestamps):
 
-* ``Failed password for (invalid user )?USER from IP``
+* ``Failed password|publickey|keyboard-interactive for (invalid user )?USER from IP``
 * ``Accepted password|publickey for USER from IP``
 * ``Invalid user USER from IP``
 * sudo: ``USER : TTY=... ; USER=runas ; COMMAND=...``
 
-Anything else (cron, PAM noise, truncated lines) is a soft-fail miss.
-Keep ``PARSER_VERSION`` stable so goldens stay pinned to v1 while v2 can be
-added later as a separate module.
+Anything else (cron, PAM noise, unified-log chrome, truncated lines) is a
+soft-fail miss. Keep ``PARSER_VERSION`` stable so goldens stay pinned to v1.
 """
 
 from __future__ import annotations
@@ -35,9 +35,17 @@ _SYSLOG_PREFIX = re.compile(
     r"(?P<msg>.*)$"
 )
 
-# journalctl short-iso-ish: "2024-04-19T03:12:01 host sshd[9821]: message"
+# journalctl short-iso: "2024-04-19T03:12:01+00:00 host sshd[12]: message"
 _ISO_PREFIX = re.compile(
     r"^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\s+"
+    r"(?P<host>\S+)\s+"
+    r"(?P<proc>[^:\[\s]+)(?:\[\d+\])?:\s+"
+    r"(?P<msg>.*)$"
+)
+
+# macOS log show --style syslog / compact: "2024-10-05 12:00:00.123 host sshd[12]: message"
+_MAC_PREFIX = re.compile(
+    r"^(?P<ts>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:?\d{2})?)\s+"
     r"(?P<host>\S+)\s+"
     r"(?P<proc>[^:\[\s]+)(?:\[\d+\])?:\s+"
     r"(?P<msg>.*)$"
@@ -46,10 +54,10 @@ _ISO_PREFIX = re.compile(
 _IP = r"(?P<ip>(?:\d{1,3}\.){3}\d{1,3}|[0-9a-fA-F:]{2,})"
 
 _FAILED_INVALID = re.compile(
-    rf"Failed password for invalid user (?P<user>\S+) from {_IP}(?:\s+port\s+\d+)?"
+    rf"Failed (?:password|publickey|keyboard-interactive(?:/pam)?) for invalid user (?P<user>\S+) from {_IP}(?:\s+port\s+\d+)?"
 )
 _FAILED = re.compile(
-    rf"Failed password for (?P<user>\S+) from {_IP}(?:\s+port\s+\d+)?"
+    rf"Failed (?:password|publickey|keyboard-interactive(?:/pam)?) for (?P<user>\S+) from {_IP}(?:\s+port\s+\d+)?"
 )
 _ACCEPTED = re.compile(
     rf"Accepted (?:password|publickey) for (?P<user>\S+) from {_IP}(?:\s+port\s+\d+)?"
@@ -67,7 +75,11 @@ class AuthlogV1Parser:
 
     def parse_line(self, line: str) -> Optional[AuthEvent]:
         stripped = line.strip()
-        match = _SYSLOG_PREFIX.match(stripped) or _ISO_PREFIX.match(stripped)
+        match = (
+            _SYSLOG_PREFIX.match(stripped)
+            or _ISO_PREFIX.match(stripped)
+            or _MAC_PREFIX.match(stripped)
+        )
         if match:
             timestamp = match.group("ts")
             host = match.group("host")

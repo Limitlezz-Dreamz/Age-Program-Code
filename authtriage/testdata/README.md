@@ -12,7 +12,7 @@ This tree may contain **small public excerpts** for tests. Large corpora stay up
 | `elastic_auth_snippet.log` | [elastic/examples](https://github.com/elastic/examples/blob/master/Machine%20Learning/Security%20Analytics%20Recipes/suspicious_login_activity/data/auth.log) | Short slice of sshd invalid/accepted lines. **Not** the full Elastic file. |
 | Elastic full `auth.log` (optional) | same URL, raw file ~800KB | Do not commit unless you need it; fetch locally. |
 | Loghub SSH + Linux | [logpai/loghub](https://github.com/logpai/loghub) · [Zenodo 3227177](https://zenodo.org/records/3227177) (`SSH.tar.gz`, `Linux.tar.gz`) | Cite Loghub/Zenodo if you redistribute. |
-| `Linux_2k.log` | [chowdhuryrz/linux-log-analysis](https://github.com/chowdhuryrz/linux-log-analysis) | Optional tiny teaching slice. |
+| `macos_sshd_snippet.log` | Original synthetic fixture | Lab-style macOS syslog + compact `log show` lines (RFC1918 IPs). Not copied from a real Mac. |
 
 ## Fetch locally (optional)
 
@@ -56,5 +56,19 @@ journalctl -u ssh -o short-iso --no-pager > testdata/ssh.journal.txt
 authtriage testdata/ssh.journal.txt -o out/
 ```
 
-AuthTriage never invokes `sudo` or `journalctl` itself. You need sudo only if your lab user cannot read the journal.
+AuthTriage never invokes `sudo`, `journalctl`, or `log show` itself.
+
+macOS lab Mac (not a work Mac):
+
+```bash
+log show --style syslog --predicate \
+  'process == "sshd" OR process == "sshd-session" OR process == "sudo"' \
+  --last 24h | authtriage - -o out/
+```
+
+Or use the committed synthetic snippet:
+
+```bash
+authtriage testdata/macos_sshd_snippet.log -o out/
+```
 

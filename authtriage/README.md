@@ -1,6 +1,6 @@
-# AuthTriage for Linux
+# AuthTriage for Linux and macOS
 
-Read-only CLI that ingests a Linux `auth.log` (or syslog-style / `journalctl` text export) and writes a **markdown one-pager**, an **IOC IP CSV**, and a **self-contained HTML report** (SVG sparkline of fails vs successes).
+Read-only CLI that ingests a Linux `auth.log` or macOS `log show --style syslog` export (syslog-style / `journalctl` text) and writes a **markdown one-pager**, an **IOC IP CSV**, and a **self-contained HTML report** (SVG sparkline of fails vs successes).
 
 > **LAB / PUBLIC DATA ONLY — never use employer or production logs.**
 
@@ -31,17 +31,28 @@ authtriage testdata/sentinel_sample_auth.log -o out/ --serve
 
 `--serve` binds **127.0.0.1** only. It does not scan the network or change the host.
 
-## journalctl pipe (lab VM only)
+## journalctl / log show (lab only)
 
-AuthTriage never runs `sudo` and never talks to the journal itself. You export text, then pipe it. **Not a work host.**
+AuthTriage never runs `sudo`, `journalctl`, or `log show`. You export text, then pipe it. **Not a work host.**
+
+Linux:
 
 ```bash
-# short-iso matches authlog_v1. sudo only if your user cannot read the journal
-# (not in systemd-journal / adm). Skip sudo when `journalctl --user` is enough.
 sudo journalctl -u ssh -u sshd -o short-iso --no-pager | authtriage - -o out/
 ```
 
-If `ssh` / `sshd` unit names differ on the distro, list units first (`systemctl list-units '*ssh*'`). Still lab-only.
+macOS (Remote Login / OpenSSH on a **lab** Mac):
+
+```bash
+# --style syslog is what authlog_v1 expects. Skip sudo if your user can read the log.
+log show --style syslog --predicate \
+  'process == "sshd" OR process == "sshd-session" OR process == "sudo"' \
+  --last 24h | authtriage - -o out/
+```
+
+Committed fixture: `testdata/macos_sshd_snippet.log` (synthetic lab lines, not a real machine dump).
+
+If `ssh` / `sshd` unit names differ on Linux, list units first (`systemctl list-units '*ssh*'`). Still lab-only.
 
 ## Multi-file batch
 
@@ -80,7 +91,7 @@ See `testdata/README.md` for curl one-liners. Sample logs remain under **their u
 
 ## Parser versioning + soft-fail
 
-`authlog_v1` extracts sshd failed / invalid / accepted lines and sudo COMMAND lines. Everything else (PAM, cron, useradd, garbage) increments `unparsed` and is skipped. Exit code is **0** on unknown lines; there is no traceback.
+`authlog_v1` extracts sshd failed / invalid / accepted lines (including macOS `Failed publickey` / `keyboard-interactive` and `sshd-session`) and sudo COMMAND lines. Everything else (PAM, cron, useradd, unified-log chrome, garbage) increments `unparsed` and is skipped. Exit code is **0** on unknown lines; there is no traceback.
 
 To extend: add `src/authtriage/parsers/authlog_v2.py` with a new `PARSER_VERSION`. Keep v1 and its goldens unchanged. Wire v2 behind an explicit flag later; do not silently replace v1.
 
@@ -89,7 +100,7 @@ To extend: add `src/authtriage/parsers/authlog_v2.py` with a new `PARSER_VERSION
 - Auto-block, fail2ban, iptables, or any host mutation
 - SIEM pipelines
 - Work / employer / production logs
-- AuthTriage calling `journalctl` or `sudo` for you
+- AuthTriage calling `journalctl`, `log show`, or `sudo` for you
 
 ## Study, don’t clone
 

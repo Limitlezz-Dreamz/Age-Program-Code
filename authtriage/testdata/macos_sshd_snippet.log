@@ -1,0 +1,15 @@
+Oct  5 09:12:01 lab-mac.local sshd[4012]: Invalid user admin from 198.51.100.40 port 49234
+Oct  5 09:12:02 lab-mac.local sshd[4012]: Invalid user root from 198.51.100.40 port 49235
+Oct  5 09:12:03 lab-mac.local sshd[4012]: Failed password for invalid user test from 198.51.100.40 port 49236 ssh2
+Oct  5 09:12:04 lab-mac.local sshd[4012]: Failed password for invalid user git from 198.51.100.40 port 49237 ssh2
+Oct  5 09:12:05 lab-mac.local sshd[4012]: Failed publickey for alex from 198.51.100.40 port 49238 ssh2
+Oct  5 09:12:06 lab-mac.local sshd[4012]: Failed keyboard-interactive/pam for alex from 198.51.100.40 port 49239 ssh2
+Oct  5 09:12:07 lab-mac.local sshd[4012]: Accepted publickey for alex from 198.51.100.40 port 49240 ssh2
+Oct  5 09:12:20 lab-mac.local sudo:     alex : TTY=ttys000 ; PWD=/Users/alex ; USER=root ; COMMAND=/usr/bin/id
+2024-10-05 10:05:11.123 lab-mac.local sshd[5100]: Failed password for alex from 10.0.0.8 port 61001 ssh2
+2024-10-05 10:05:12.456 lab-mac.local sshd-session[5101]: Failed password for alex from 10.0.0.8 port 61002 ssh2
+2024-10-05 10:05:13.789 lab-mac.local sshd[5102]: Accepted publickey for alex from 10.0.0.8 port 61003 ssh2
+2024-10-05 10:05:20.001-0500 lab-mac.local sudo: alex : TTY=ttys001 ; PWD=/Users/alex ; USER=root ; COMMAND=/bin/ls
+Oct  5 11:00:00 lab-mac.local sshd[6000]: Accepted publickey for deploy from 10.0.0.5 port 22 ssh2
+Oct  5 11:00:10 lab-mac.local sudo:     deploy : TTY=ttys002 ; PWD=/opt/app ; USER=root ; COMMAND=/usr/bin/rsync -a /tmp/rel/ /opt/app/
+Oct  5 11:01:00 lab-mac.local log: this is not an sshd line
