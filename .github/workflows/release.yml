@@ -10,11 +10,11 @@ permissions:
   contents: write
 
 # Builds native installers via tauri-apps/tauri-action and attaches them to a
-# GitHub Release. Signing secrets (optional — see docs/packaging.md):
+# GitHub Release. Optional secrets (see docs/packaging.md):
 #   Updater: TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 #   Apple:   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
 #            APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID
-#   Windows: WINDOWS_CERTIFICATE, WINDOWS_CERTIFICATE_PASSWORD (Authenticode)
+#   Windows: WINDOWS_CERTIFICATE, WINDOWS_CERTIFICATE_PASSWORD
 jobs:
   publish-tauri:
     name: bundle (${{ matrix.platform }})
@@ -60,11 +60,13 @@ jobs:
       - name: Install npm deps
         run: npm ci
 
-      # Signed updater artifacts require TAURI_SIGNING_PRIVATE_KEY (repo secret).
+      # Secret comparisons in `if:` / `with:` break workflow validation — gate in bash instead.
       - name: Enable updater artifacts when signing key is configured
-        if: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          python3 - <<'PY'
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            python3 - <<'PY'
           import json
           from pathlib import Path
           p = Path("src-tauri/tauri.conf.json")
@@ -73,33 +75,56 @@ jobs:
           p.write_text(json.dumps(conf, indent=2) + "\n")
           print("createUpdaterArtifacts=true")
           PY
+            echo "UPLOAD_UPDATER_JSON=true" >> "$GITHUB_ENV"
+          else
+            echo "UPLOAD_UPDATER_JSON=false" >> "$GITHUB_ENV"
+            echo "No TAURI_SIGNING_PRIVATE_KEY — skipping updater artifacts"
+          fi
 
-      # Only inject Apple/Windows cert env when secrets are non-empty.
-      # Empty APPLE_CERTIFICATE breaks ad-hoc macOS signing.
       - name: Configure Apple signing (optional)
-        if: startsWith(matrix.platform, 'macos') && secrets.APPLE_CERTIFICATE != ''
+        if: startsWith(matrix.platform, 'macos')
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          if [ -z "${APPLE_CERTIFICATE:-}" ]; then
+            echo "No APPLE_CERTIFICATE — ad-hoc signing (signingIdentity: -)"
+            exit 0
+          fi
           {
             echo "APPLE_CERTIFICATE<<EOF"
-            echo "${{ secrets.APPLE_CERTIFICATE }}"
+            echo "$APPLE_CERTIFICATE"
             echo "EOF"
-            echo "APPLE_CERTIFICATE_PASSWORD=${{ secrets.APPLE_CERTIFICATE_PASSWORD }}"
-            echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}"
-            echo "APPLE_ID=${{ secrets.APPLE_ID }}"
-            echo "APPLE_PASSWORD=${{ secrets.APPLE_PASSWORD }}"
-            echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}"
+            echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD"
+            echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY"
+            echo "APPLE_ID=$APPLE_ID"
+            echo "APPLE_PASSWORD=$APPLE_PASSWORD"
+            echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
           } >> "$GITHUB_ENV"
+          echo "Apple signing secrets exported"
 
       - name: Configure Windows Authenticode (optional)
-        if: matrix.platform == 'windows-latest' && secrets.WINDOWS_CERTIFICATE != ''
+        if: matrix.platform == 'windows-latest'
         shell: bash
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
+          if [ -z "${WINDOWS_CERTIFICATE:-}" ]; then
+            echo "No WINDOWS_CERTIFICATE — unsigned Windows build"
+            exit 0
+          fi
           {
             echo "WINDOWS_CERTIFICATE<<EOF"
-            echo "${{ secrets.WINDOWS_CERTIFICATE }}"
+            echo "$WINDOWS_CERTIFICATE"
             echo "EOF"
-            echo "WINDOWS_CERTIFICATE_PASSWORD=${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}"
+            echo "WINDOWS_CERTIFICATE_PASSWORD=$WINDOWS_CERTIFICATE_PASSWORD"
           } >> "$GITHUB_ENV"
+          echo "Windows signing secrets exported"
 
       - name: Build and upload Logwarden
         uses: tauri-apps/tauri-action@v1
@@ -117,5 +142,6 @@ jobs:
             See `docs/packaging.md` for signing and verification notes.
           releaseDraft: true
           prerelease: false
-          uploadUpdaterJson: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+          # Always upload updater JSON when present; without a signing key, no .sig artifacts are produced.
+          uploadUpdaterJson: false
           args: ${{ matrix.args }}
