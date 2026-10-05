@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { ipc } from "@/ipc/client";
 import type { Settings } from "@/ipc/types";
 import { useAppStore } from "@/stores/app-store";
@@ -10,15 +12,36 @@ export function SettingsScreen() {
   const setSettings = useAppStore((s) => s.setSettings);
   const [draft, setDraft] = useState<Settings | null>(settings);
   const [msg, setMsg] = useState<string | null>(null);
-  const [version, setVersion] = useState("0.1.0");
+  const [version, setVersion] = useState("0.1.1");
+  const [updateBusy, setUpdateBusy] = useState(false);
 
   useEffect(() => {
     setDraft(settings);
   }, [settings]);
 
   useEffect(() => {
-    void ipc.appVersion().then(setVersion).catch(() => setVersion("0.1.0"));
+    void ipc.appVersion().then(setVersion).catch(() => setVersion("0.1.1"));
   }, []);
+
+  async function checkForUpdates() {
+    setUpdateBusy(true);
+    setMsg(null);
+    try {
+      const update = await check();
+      if (!update) {
+        setMsg("You’re on the latest version.");
+        return;
+      }
+      setMsg(`Update ${update.version} available — downloading…`);
+      await update.downloadAndInstall();
+      setMsg("Update installed. Restarting…");
+      await relaunch();
+    } catch (e) {
+      setMsg(`Update check: ${String(e)}`);
+    } finally {
+      setUpdateBusy(false);
+    }
+  }
 
   if (!draft) {
     return <p className="text-muted-foreground">Loading settings…</p>;
@@ -185,6 +208,15 @@ export function SettingsScreen() {
         <p className="mt-2 text-xs">
           Desktop packages: see docs/packaging.md · MIT OR Apache-2.0
         </p>
+        <div className="mt-3">
+          <Button
+            variant="outline"
+            disabled={updateBusy}
+            onClick={() => void checkForUpdates()}
+          >
+            {updateBusy ? "Checking…" : "Check for updates"}
+          </Button>
+        </div>
       </section>
     </div>
   );

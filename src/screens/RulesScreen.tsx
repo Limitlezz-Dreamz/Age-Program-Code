@@ -24,6 +24,9 @@ export function RulesScreen() {
   const [busy, setBusy] = useState(false);
   const [suppField, setSuppField] = useState("summary");
   const [suppValue, setSuppValue] = useState("");
+  const [enabledFilter, setEnabledFilter] = useState<"all" | "enabled" | "disabled">(
+    "all",
+  );
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -35,7 +38,8 @@ export function RulesScreen() {
           offset: 0,
           limit: 500,
           text: text || null,
-          enabled_only: null,
+          enabled_only:
+            enabledFilter === "all" ? null : enabledFilter === "enabled",
         });
         setRules(page.rows);
         setTotal(page.total);
@@ -44,7 +48,7 @@ export function RulesScreen() {
     } catch (e) {
       setError(String(e));
     }
-  }, [caseInfo, text]);
+  }, [caseInfo, text, enabledFilter]);
 
   useEffect(() => {
     void refresh();
@@ -230,13 +234,25 @@ export function RulesScreen() {
 
       <div className="flex min-h-[20rem] gap-3">
         <section className="min-w-0 flex-1 space-y-2">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <input
-              className="h-8 flex-1 rounded-md border border-border bg-background/60 px-2 text-sm"
+              className="h-8 min-w-[12rem] flex-1 rounded-md border border-border bg-background/60 px-2 text-sm"
               placeholder="Filter rules…"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
+            <select
+              className="h-8 rounded-md border border-border bg-background/60 px-2 text-sm text-foreground"
+              value={enabledFilter}
+              onChange={(e) =>
+                setEnabledFilter(e.target.value as "all" | "enabled" | "disabled")
+              }
+              aria-label="Enabled filter"
+            >
+              <option value="all">All rules</option>
+              <option value="enabled">Enabled only</option>
+              <option value="disabled">Disabled only</option>
+            </select>
           </div>
           <div className="max-h-[28rem] overflow-auto rounded-md border border-border/70">
             <table className="w-full text-left text-sm">

@@ -35,3 +35,7 @@ num_cpus = { workspace = true }
 time = { workspace = true }
 tracing = { workspace = true }
 ts-rs = { version = "10", optional = true, features = ["serde-compat"] }
+tauri-plugin-process = "2.4.0"
+
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-updater = "2.13.1"

@@ -49,24 +49,41 @@ Draft releases are created as **Logwarden v\_\_VERSION\_\_** (version from `taur
 ### Trigger
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 # or: Actions → Release → Run workflow
 ```
 
-## Signing
+## Code signing (optional secrets)
 
-| Platform | Default | Production |
-|---|---|---|
-| macOS | Ad-hoc (`signingIdentity: "-"`) | Set Apple cert secrets + identity; notarize with Apple ID / team |
-| Windows | Unsigned | Configure Authenticode / Tauri signing keys in repo secrets |
-| Linux | Unsigned packages | Optional: GPG-sign release assets externally |
+Add secrets under **Repo → Settings → Secrets and variables → Actions**. The workflow only injects cert env vars when the secret is non-empty (empty `APPLE_*` breaks ad-hoc macOS builds).
 
-For notarized macOS builds, add these **repo secrets** and wire them into `.github/workflows/release.yml` `env:`:
+| Secret | Purpose |
+|---|---|
+| `APPLE_CERTIFICATE` | Base64 `.p12` for Developer ID Application |
+| `APPLE_CERTIFICATE_PASSWORD` | Password for the `.p12` |
+| `APPLE_SIGNING_IDENTITY` | e.g. `Developer ID Application: …` (overrides ad-hoc `-`) |
+| `APPLE_ID` / `APPLE_PASSWORD` / `APPLE_TEAM_ID` | Notarization |
+| `WINDOWS_CERTIFICATE` | Base64 PFX for Authenticode |
+| `WINDOWS_CERTIFICATE_PASSWORD` | PFX password |
+| `TAURI_SIGNING_PRIVATE_KEY` | Minisign private key for **updater** artifacts |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Optional password for that key |
 
-`APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`.
+Without Apple secrets, `signingIdentity: "-"` (ad-hoc) is used. Without Windows secrets, installers are unsigned.
 
-Do **not** pass empty secret placeholders — blank `APPLE_*` env vars break ad-hoc signing. Without secrets, `signingIdentity: "-"` in `tauri.conf.json` is used.
+### Updater keys
+
+Public key is embedded in `src-tauri/tauri.conf.json` → `plugins.updater.pubkey`.
+
+Generate a new pair (if rotating):
+
+```bash
+npx tauri signer generate -w .tauri/logwarden.key
+# commit only the pubkey string into tauri.conf.json
+# add private key contents as TAURI_SIGNING_PRIVATE_KEY secret — never commit .tauri/*.key
+```
+
+When `TAURI_SIGNING_PRIVATE_KEY` is set, the release workflow enables `createUpdaterArtifacts` and uploads `latest.json` for in-app updates (Settings → Check for updates).
 
 ## Version sync
 
