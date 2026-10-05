@@ -6,9 +6,17 @@ Read-only CLI that ingests a Linux `auth.log` or macOS `log show --style syslog`
 
 This is **triage, not ops**. No ban, no fail2ban hooks, no host mutation. Unknown lines are counted and skipped; the run does not crash.
 
-**It runs on a Mac.** It is a Python 3.11+ CLI (stdlib only). Same commands on Linux and macOS. You do not need a Linux VM to use the program.
+**It runs on a Mac.** No Linux VM. Python 3.11+ (already on many Macs, or `brew install python`).
 
-## Quickstart (Linux or macOS)
+### Double-click on a Mac
+
+1. Put the `authtriage` folder on the Mac.
+2. Double-click **`AuthTriage.command`**.
+3. If macOS blocks it: right-click the file → **Open**.
+
+That installs a local venv if needed, triages the Mac lab sample, and opens `out/report.html` in your browser.
+
+## Quickstart (Terminal on Linux or macOS)
 
 ```bash
 # macOS: python3 is enough, or `brew install python` if you want 3.12+
