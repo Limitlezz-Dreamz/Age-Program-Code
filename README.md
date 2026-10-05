@@ -1,23 +1,23 @@
 # Logwarden
 
-Cross-platform EVTX threat-hunting desktop app (Chainsaw-style workflow with a GUI).
+Cross-platform offline EVTX threat-hunting desktop app (Chainsaw-style workflow with a GUI).
 
 **Stack:** Tauri 2 · Rust · React · TypeScript · SQLite · Sigma
 
-> Product name is a placeholder — rename via `lw_core::APP_NAME` / `src/lib/constants.ts`.
+**Download:** [v0.1.0 releases](https://github.com/Limitlezz-Dreamz/Age-Program-Code/releases/tag/v0.1.0)
 
 ## Status
 
-Milestone **M7** (packaging / release) complete. See `docs/milestones/` and `docs/packaging.md`.
+Milestones **M0–M7** shipped. Post-release polish (updater, signing hooks, MITRE map) is in progress on `main` via PRs. See `docs/milestones/` and `docs/packaging.md`.
 
 ## Develop
 
 ```bash
 npm install
-just ci          # fmt, clippy, tests, deny, tsc, eslint, vitest
+just ci          # fmt, clippy, tests, deny, tsc, eslint, vitest, bundle-check
 just fixtures    # optional: fetch external EVTX sample sets
-just dev         # Tauri GUI: create case, add EVTX, start/cancel analysis
-just bundle      # platform installers (deb/AppImage/NSIS/MSI/DMG)
+just dev         # Tauri GUI
+just bundle      # platform installers
 cargo build -p lw-cli --release
 ./target/release/lw ingest path/to/logs --case /tmp/demo.lwcase --bench
 ./target/release/lw hunt --case /tmp/demo.lwcase --profile all
@@ -34,7 +34,7 @@ cargo build -p lw-cli --release
 
 ## Docs
 
-- Build spec and research report (project planning docs)
 - `CHANGELOG.md`
 - `docs/milestones/M0.md` … `M7.md`
-- `docs/packaging.md`
+- `docs/packaging.md` — installers, signing, updater keys
+- `docs/perf.md`

@@ -31,6 +31,11 @@ Cargo.lock.bak
 # Tauri
 src-tauri/gen
 
+# Updater private key (never commit). Public key lives in tauri.conf.json.
+.tauri/
+*.key
+!*.key.pub
+
 # Fixtures (external, often GPL / unlicensed — fetch only)
 tests/fixtures/ext/
 

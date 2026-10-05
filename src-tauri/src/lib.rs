@@ -14,7 +14,13 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            #[cfg(desktop)]
+            {
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+            }
             // Packaged resources land under resource_dir/resources (see tauri.conf.json).
             if let Ok(resource_dir) = app.path().resource_dir() {
                 let bundled = resource_dir.join("resources");

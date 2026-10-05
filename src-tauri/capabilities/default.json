@@ -7,6 +7,8 @@
     "core:default",
     "opener:allow-reveal-item-in-dir",
     "dialog:allow-open",
-    "dialog:allow-save"
+    "dialog:allow-save",
+    "updater:default",
+    "process:allow-restart"
   ]
 }
